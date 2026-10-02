@@ -36,6 +36,12 @@ export class Simulation{
   if(job==='線')return this.layout.lines[rank];
   return this.standbyGoal(p);
  }
+ correctTetherDirection(p){
+  // A cardinal sector, independent of tower offset or exact distance from the boss.
+  const axis=polar(this.goal(p).dir*Math.PI/2,1);
+  const forward=p.x*axis.x+p.y*axis.y,side=p.x*axis.y-p.y*axis.x;
+  return forward>0&&Math.abs(side)<=forward+1e-8;
+ }
  safeWaitingPoint(point){
   return this.layout.towers.every(t=>distance(point,t)>this.config.towerRadius)&&this.layout.lines.every(g=>distance(point,g)>=this.config.blastRadius);
  }
@@ -208,7 +214,7 @@ export class Simulation{
    if(inside.some(p=>p!==expected))errors.push(`塔に担当外の人が入っています（${inside.filter(p=>p!==expected).map(p=>p.role).join('・')}）`);
    const holder=holders[i];
    if(this.job(holder)!=='線')errors.push(`${holder.role}：次の線担当に受け渡せていません`);
-   else if(distance(holder,this.goal(holder))>3.3)errors.push(`${holder.role}：線を伸ばす位置が優先度と異なります`);
+   else if(!this.correctTetherDirection(holder))errors.push(`${holder.role}：線は担当の${['北','東','南','西'][this.goal(holder).dir]}側へ伸ばしてください`);
    for(const p of this.players)if(p!==holder&&distance(p,holder)<this.config.blastRadius)errors.push(`${holder.role}のブラスターが${p.role}に命中`);
    this.effects.push({...holder,until:this.total+1.1,radius:this.config.blastRadius});
   }

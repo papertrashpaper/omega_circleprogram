@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {Simulation,ROLES,action,makeLayout} from '../engine.js';
+import {Simulation,ROLES,action,makeLayout,polar,distance} from '../engine.js';
 function random(seed){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}}
 test('numbers are paired, selected number and H2 priority are preserved',()=>{
  for(let n=1;n<=4;n++){const s=new Simulation({number:n,rng:random(n)});assert.equal(s.user.number,n);assert.equal(s.rank(s.user),1);for(let i=1;i<=4;i++)assert.equal(s.players.filter(p=>p.number===i).length,2)}
@@ -128,4 +128,41 @@ test('tether holders wait further out while a destination is occupied',()=>{
  const g=s.goal(p);Object.assign(p,{x:g.x/18*s.config.pickupRadius,y:g.y/18*s.config.pickupRadius,tetherAcquiredAt:10,extending:false});
  for(let i=0;i<20;i++)s.bot(p,.01);
  assert.ok(Math.abs(Math.hypot(p.x,p.y)-s.config.tetherWaitRadius)<1e-8);assert.equal(p.extending,false);
+});
+
+function tetherResolutionFixture(rotation=0,sign=1){
+ const s=new Simulation({rng:random(7)}),offset=sign*Math.atan(3/12);
+ const dirs=[1,2].map(d=>(d+rotation)%4).sort((a,b)=>a-b);
+ s.layouts[0]={dirs,offset,towers:dirs.map(dir=>({...polar(dir*Math.PI/2+offset,12.4),dir})),lines:[0,1,2,3].filter(dir=>!dirs.includes(dir)).map(dir=>({...polar(dir*Math.PI/2+offset,18),dir}))};
+ s.start();s.total=14;s.elapsed=14;
+ for(const p of s.players)Object.assign(p,s.goal(p));
+ const holders=s.players.filter(p=>s.job(p)==='線');s.tethers=holders.map(p=>({owner:p.role,contacts:new Set()}));
+ return {s,holders};
+}
+test('safe cardinal tether placements pass despite being outside the old target tolerance',()=>{
+ for(let rotation=0;rotation<4;rotation++)for(const sign of [-1,1]){
+  const {s,holders}=tetherResolutionFixture(rotation,sign);
+  for(const p of holders){const goal=s.goal(p);Object.assign(p,polar(goal.dir*Math.PI/2,18));assert.ok(distance(p,goal)>3.3)}
+  const safe=s.layout.dirs.map(dir=>polar(dir*Math.PI/2,8)).reduce((a,b)=>({x:a.x+b.x,y:a.y+b.y}),{x:0,y:0});
+  for(const p of s.players.filter(p=>s.job(p)==='休み'))Object.assign(p,safe);
+  s.resolve();assert.deepEqual(s.history[0].errors,[],`rotation=${rotation} sign=${sign}`);
+ }
+});
+test('tether direction tolerates position variation but rejects other cardinal sectors',()=>{
+ for(let rotation=0;rotation<4;rotation++){
+  const {s,holders}=tetherResolutionFixture(rotation),p=holders[0],a=s.goal(p).dir*Math.PI/2;
+  for(const radius of [10,16,19.8])for(const delta of [-.6,0,.6]){Object.assign(p,polar(a+delta,radius));assert.equal(s.correctTetherDirection(p),true)}
+  for(const delta of [-Math.PI/2,Math.PI/2,Math.PI]){Object.assign(p,polar(a+delta,18));assert.equal(s.correctTetherDirection(p),false)}
+  Object.assign(p,{x:0,y:0});assert.equal(s.correctTetherDirection(p),false);
+ }
+});
+test('swapping tether destinations still fails even when blasts hit nobody',()=>{
+ const {s,holders}=tetherResolutionFixture();const [a,b]=holders.map(p=>({...s.goal(p)}));
+ Object.assign(holders[0],b);Object.assign(holders[1],a);s.resolve();
+ assert.equal(s.state,'failed');assert.equal(s.history[0].errors.filter(e=>e.includes('側へ伸ばしてください')).length,2);assert.ok(s.history[0].errors.every(e=>!e.includes('命中')));
+});
+test('correct tether direction still fails when a blast catches another player',()=>{
+ const {s,holders}=tetherResolutionFixture(),holder=holders[0],other=s.players.find(p=>s.job(p)==='休み');
+ Object.assign(holder,polar(s.goal(holder).dir*Math.PI/2,18));Object.assign(other,{x:holder.x*.7,y:holder.y*.7});s.resolve();
+ assert.equal(s.state,'failed');assert.ok(s.history[0].errors.some(e=>e===`${holder.role}のブラスターが${other.role}に命中`));
 });
