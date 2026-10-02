@@ -10,6 +10,18 @@ for(const id of ['role','number','pattern','blastRadius'])$(id).onchange=reset;
 function pathCircle(p,r,fill,stroke,width=1){const q=px(p);ctx.beginPath();ctx.arc(q.x,q.y,r*S,0,2*Math.PI);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}}
 function text(t,p,size,color,weight=500){const q=px(p);ctx.font=`${weight} ${size}px system-ui,sans-serif`;ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,q.x,q.y)}
 function line(a,b,color,width=2,dash=[]){a=px(a);b=px(b);ctx.beginPath();ctx.setLineDash(dash);ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();ctx.setLineDash([])}
+// Number debuffs: blue I/III and pink II/IV shields with matching light dots.
+function drawNumberDebuff(p){
+ const q=px(p),x=q.x+10,y=q.y-35,w=25,h=32;
+ ctx.save();
+ ctx.beginPath();ctx.moveTo(x+3,y+7);ctx.lineTo(x+w-3,y+7);ctx.quadraticCurveTo(x+w,y+7,x+w,y+10);ctx.lineTo(x+w,y+h-7);ctx.quadraticCurveTo(x+w/2,y+h+3,x,y+h-7);ctx.lineTo(x,y+10);ctx.quadraticCurveTo(x,y+7,x+3,y+7);
+ const fill=ctx.createLinearGradient(x,y+7,x,y+h);fill.addColorStop(0,'#3d414d');fill.addColorStop(1,p.number%2?'#4855ac':'#ac4789');ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle='#a9adb7';ctx.lineWidth=1.5;ctx.stroke();
+ const dots={1:[[0,0]],2:[[-5,0],[5,0]],3:[[0,-5],[-5,4],[5,4]],4:[[-5,-5],[5,-5],[-5,4],[5,4]]};
+ ctx.shadowColor=p.number%2?'#acbfff':'#ffbce9';ctx.shadowBlur=5;ctx.fillStyle='#f0eeff';
+ for(const [dx,dy] of dots[p.number]){ctx.beginPath();ctx.arc(x+w/2+dx,y+22+dy,3,0,Math.PI*2);ctx.fill()}
+ ctx.shadowBlur=0;ctx.font='bold 18px Georgia,serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.strokeStyle='#25262c';ctx.lineWidth=3;ctx.strokeText(['I','II','III','IV'][p.number-1],x+w/2,y+8);ctx.fillStyle='#fff';ctx.fillText(['I','II','III','IV'][p.number-1],x+w/2,y+8);
+ ctx.restore();
+}
 function draw(){
  ctx.clearRect(0,0,900,900);
  const grad=ctx.createRadialGradient(450,450,30,450,450,405);grad.addColorStop(0,'#1b2c3c');grad.addColorStop(1,'#0e1b2a');pathCircle({x:0,y:0},20,grad,'#518296',2);
@@ -36,7 +48,9 @@ function draw(){
   }
  }
  pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:0},44,'#cad9df',600);
- for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,.97,null,'#ffffff',2.5);pathCircle(p,.76,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,16,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.45},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.35},12,'#ffb6ba')}
+ for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,.97,null,'#ffffff',2.5);pathCircle(p,.76,colors[p.role],'#0b1723',2);text(p.role,p,14,'#0b1723',750);if(you)text('YOU',{x:p.x,y:p.y+1.35},12,'#ffffff',650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+(you?2.2:1.35)},12,'#ffb6ba')}
+ // Draw badges after all players so a neighboring body cannot cover the number.
+ if(sim.numbersVisible)for(const p of sim.players)drawNumberDebuff(p);
 }
 function ui(){
  const p=sim.user,r=sim.round,job=sim.job(p),ready=sim.state==='ready';
