@@ -15,7 +15,7 @@ export class Simulation{
   this.config={...CONFIG,...config};this.rng=rng;this.pattern=pattern;this.userRole=role;this.round=0;this.elapsed=0;this.total=0;this.state='ready';this.message='';this.history=[];this.effects=[];this.layouts=Array.from({length:4},()=>makeLayout(rng,pattern));
   const n=number||1+Math.floor(rng()*4),nums=[1,1,2,2,3,3,4,4];nums.splice(nums.indexOf(n),1);const rest=shuffled(nums,rng);
   this.players=ROLES.map((role,i)=>({role,number:role===this.userRole?n:rest.pop(),...polar(i*Math.PI/4,3.5),target:null,scarUntil:0,hpUntil:0}));
-  this.user=this.players.find(p=>p.role===this.userRole);const owners=shuffled(this.players,rng);this.tethers=[{owner:owners[0].role},{owner:owners[1].role}];
+  this.user=this.players.find(p=>p.role===this.userRole);const owners=shuffled(this.players,rng);this.tethers=[{owner:owners[0].role,contacts:new Set()},{owner:owners[1].role,contacts:new Set()}];
  }
  get layout(){return this.layouts[this.round]}
  get duration(){return this.round===0?this.config.firstDuration:this.config.roundDuration}
@@ -37,9 +37,20 @@ export class Simulation{
   const candidates=this.tethers.map((t,i)=>({i,d:segmentDistance(p,this.byRole(t.owner))})).filter(t=>index===null||t.i===index).sort((a,b)=>a.d-b.d);
   const nearest=candidates[0];
   if(!nearest||nearest.d>this.config.transferDistance){if(p===this.user)this.message='線または線の持ち主に近づいてください';return false}
-  this.tethers[nearest.i].owner=p.role;
+  const tether=this.tethers[nearest.i];
+  tether.owner=p.role;
+  // A transfer changes the line geometry: require existing contacts to leave before retaking.
+  tether.contacts=new Set(this.players.filter(x=>segmentDistance(x,p)<=this.config.transferDistance).map(x=>x.role));
   if(p===this.user)this.message='線を受け取りました。担当の外周へ移動';
   return true;
+ }
+ contact(p=this.user){
+  for(let i=0;i<this.tethers.length;i++){
+   const tether=this.tethers[i],near=segmentDistance(p,this.byRole(tether.owner))<=this.config.transferDistance;
+   const entered=near&&!tether.contacts.has(p.role);
+   if(near)tether.contacts.add(p.role);else tether.contacts.delete(p.role);
+   if(entered&&this.holding(p)<0)this.take(p,i);
+  }
  }
  move(p,target,dt,speed=this.config.moveSpeed){const d=distance(p,target);if(d<.01)return;const k=Math.min(1,speed*dt/d);p.x+=(target.x-p.x)*k;p.y+=(target.y-p.y)*k;const r=Math.hypot(p.x,p.y);if(r>19){p.x*=19/r;p.y*=19/r}}
  bot(p,dt){
@@ -63,6 +74,7 @@ export class Simulation{
   dt=Math.min(dt,.05);this.elapsed+=dt;this.total+=dt;
   for(const p of this.players)if(p!==this.user||autoUser)this.bot(p,dt);
   if(!autoUser){if(direction&&(direction.x||direction.y)){this.user.target=null;let len=Math.hypot(direction.x,direction.y);this.move(this.user,{x:this.user.x+direction.x/len,y:this.user.y+direction.y/len},dt,this.config.moveSpeed*(sprint?1.3:1))}else if(this.user.target)this.move(this.user,this.user.target,dt,this.config.moveSpeed*(sprint?1.3:1))}
+  if(!autoUser)this.contact();
   this.effects=this.effects.filter(e=>e.until>this.total);
   if(this.elapsed>=this.duration)this.resolve();
  }

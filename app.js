@@ -5,7 +5,7 @@ const S=18.2,C=450,px=p=>({x:C+p.x*S,y:C+p.y*S});
 function reset(){sim=new Simulation({role:$('role').value,number:Number($('number').value),pattern:$('pattern').value,config:{blastRadius:Number($('blastRadius').value)||16,firstDuration:Number($('firstDuration').value)||12}});keys.clear();ui();draw()}
 function start(){sim.start();canvas.focus();ui()}
 function pause(){if(sim.state==='running')sim.state='paused';else if(sim.state==='paused')sim.state='running';keys.clear();ui()}
-$('start').onclick=start;$('pause').onclick=pause;$('retry').onclick=()=>{reset();start()};$('take').onclick=()=>{sim.take();ui();canvas.focus()};
+$('start').onclick=start;$('pause').onclick=pause;$('retry').onclick=()=>{reset();start()};
 for(const id of ['role','number','pattern','blastRadius','firstDuration'])$(id).onchange=reset;
 function pathCircle(p,r,fill,stroke,width=1){const q=px(p);ctx.beginPath();ctx.arc(q.x,q.y,r*S,0,2*Math.PI);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}}
 function text(t,p,size,color,weight=500){const q=px(p);ctx.font=`${weight} ${size}px system-ui,sans-serif`;ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,q.x,q.y)}
@@ -36,17 +36,17 @@ function ui(){
  $('status').textContent={ready:'準備完了',running:`第${r+1}回 / 4  ·  ${job==='休み'?'安全な場所で待機':job==='塔'?'塔を踏む':'線を受け取り、外周へ'}`,paused:'一時停止中',failed:'処理失敗',cleared:'CLEAR'}[sim.state];
  $('next').textContent=ready?'開始するとデバフが付与されます':`塔・ブラスター発動まで ${sim.remaining.toFixed(1)} 秒`;
  $('badge').textContent=p.number;$('myrole').innerHTML=`${p.role} <span>優先度：${sim.rank(p)?'低':'高'}</span>`;$('task').textContent=`${r+1}回目：${job==='休み'?'待機':job==='塔'?'塔を踏む':'線を取る'}`;
- $('instruction').textContent=sim.message||({塔:'担当の塔に入り、発動まで待ちます。',線:'線の近くで E を押し、担当の外周まで伸ばします。',休み:'塔には入らず、塔側の安全な位置で待機します。'}[job]);
+ $('instruction').textContent=sim.message||({塔:'担当の塔に入り、発動まで待ちます。',線:'線に触れて受け取り、所持を確認して担当の外周まで伸ばします。',休み:'塔には入らず、塔側の安全な位置で待機します。'}[job]);
  $('tetherstate').textContent=sim.holding(p)>=0?'線：所持中 — 次の担当が受け取るまで残ります':'線：未所持';
  $('timeline').innerHTML=Array.from({length:4},(_,i)=>`<div class="step ${i===r?'active':i<r?'done':''}"><small>${i+1}回目</small>${action(p.number,i)}</div>`).join('');
  $('party').innerHTML=sim.players.map((x,i)=>`<div class="party-row ${x===p?'you':''}"><span class="dot" style="background:${colors[x.role]}"></span><strong>${x.role}</strong><span>${x.number}</span><span class="debuff">${sim.holding(x)>=0?'線 ':''}${x.scarUntil>sim.total?'刻印 '+Math.ceil(x.scarUntil-sim.total)+'s':sim.job(x)}${x.hpUntil>sim.total?' / HP↓':''}</span></div>`).join('');
- $('start').disabled=!ready;$('pause').disabled=!['running','paused'].includes(sim.state);$('pause').textContent=sim.state==='paused'?'再開':'一時停止';$('take').disabled=sim.state!=='running';
+ $('start').disabled=!ready;$('pause').disabled=!['running','paused'].includes(sim.state);$('pause').textContent=sim.state==='paused'?'再開':'一時停止';
  for(const id of ['role','number','pattern','blastRadius','firstDuration'])$(id).disabled=sim.state==='running'||sim.state==='paused';
  const b=$('banner');b.hidden=sim.state==='running';b.className='banner'+(sim.state==='failed'?' error':sim.state==='cleared'?' success':'');
  if(!b.hidden){const headings={ready:'自分の役割を選んで、練習開始',paused:'一時停止',failed:`第${r+1}回：もう一度練習しよう`,cleared:'全4回の処理に成功'};b.replaceChildren();const strong=document.createElement('strong'),span=document.createElement('span');strong.textContent=headings[sim.state];span.textContent=sim.state==='ready'?`${p.role}・${p.number}番 / 正解ガイドは設定で切り替えできます`:sim.state==='paused'?'再開ボタンまたは Space で続ける':sim.state==='failed'?sim.message.split('\n').slice(0,4).join('\n'):'おつかれさまでした。次はガイドなしにも挑戦できます。';b.append(strong,span)}
 }
 const controlKeys=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D','Shift'];
-window.addEventListener('keydown',e=>{if(['SELECT','INPUT','TEXTAREA'].includes(e.target.tagName))return;if(controlKeys.includes(e.key)){e.preventDefault();keys.add(e.key.toLowerCase())}if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat)pause()}if(e.code==='KeyE'&&!e.repeat){sim.take();ui()}});
+window.addEventListener('keydown',e=>{if(['SELECT','INPUT','TEXTAREA'].includes(e.target.tagName))return;if(controlKeys.includes(e.key)){e.preventDefault();keys.add(e.key.toLowerCase())}if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat)pause()}});
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();if(sim.state==='running')pause()});
 canvas.addEventListener('pointerdown',e=>{const rect=canvas.getBoundingClientRect();const x=((e.clientX-rect.left)/rect.width*900-C)/S,y=((e.clientY-rect.top)/rect.height*900-C)/S;sim.user.target={x,y};canvas.focus();e.preventDefault()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&sim.state==='running')pause()});

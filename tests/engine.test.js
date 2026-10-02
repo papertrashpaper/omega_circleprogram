@@ -21,3 +21,22 @@ test('tethers persist at round transition until another player takes them',()=>{
  const previous=[...s.tethers.map(t=>t.owner)];s.state='paused';s.tick(1/60);assert.deepEqual(s.tethers.map(t=>t.owner),previous);
 });
 test('everyone alternates work and rest',()=>{for(let n=1;n<=4;n++){const a=[0,1,2,3].map(r=>action(n,r));assert.equal(a.filter(x=>x==='塔').length,1);assert.equal(a.filter(x=>x==='線').length,1);assert.equal(Math.abs(a.indexOf('塔')-a.indexOf('線')),2)}});
+test('manual player receives on contact without input, including off-duty contact',()=>{
+ const s=new Simulation({number:1,rng:random(7)});s.bot=()=>{};
+ const owner=s.players.find(p=>p!==s.user),other=s.players.find(p=>p!==s.user&&p!==owner);
+ Object.assign(owner,{x:10,y:0});Object.assign(other,{x:0,y:-10});
+ s.tethers=[{owner:owner.role,contacts:new Set()},{owner:other.role,contacts:new Set()}];
+ Object.assign(s.user,{x:5,y:3});s.start();s.tick(.01);assert.equal(s.holding(s.user),-1);
+ s.user.y=1;s.tick(.01);assert.equal(s.holding(s.user),0);assert.equal(s.job(s.user),'塔');
+ // Another player takes the line at the same position. Standing still must not steal it back.
+ Object.assign(owner,{x:5,y:1});assert.equal(s.take(owner,0),true);
+ for(let i=0;i<20;i++)s.tick(.01);assert.equal(s.tethers[0].owner,owner.role);
+ s.user.y=4;s.tick(.01);s.user.y=1;s.tick(.01);assert.equal(s.tethers[0].owner,s.user.role);
+ assert.equal(s.tethers.filter(t=>t.owner===s.user.role).length,1);
+});
+test('contact is inactive while ready or paused',()=>{
+ const s=new Simulation({rng:random(8)});s.bot=()=>{};
+ s.user.x=0;s.user.y=0;const owners=s.tethers.map(t=>t.owner);
+ s.tick(.05);assert.deepEqual(s.tethers.map(t=>t.owner),owners);
+ s.state='paused';s.tick(.05);assert.deepEqual(s.tethers.map(t=>t.owner),owners);
+});
