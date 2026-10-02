@@ -11,16 +11,16 @@ function pathCircle(p,r,fill,stroke,width=1){const q=px(p);ctx.beginPath();ctx.a
 function text(t,p,size,color,weight=500){const q=px(p);ctx.font=`${weight} ${size}px system-ui,sans-serif`;ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,q.x,q.y)}
 function line(a,b,color,width=2,dash=[]){a=px(a);b=px(b);ctx.beginPath();ctx.setLineDash(dash);ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();ctx.setLineDash([])}
 // Number debuffs: blue I/III and pink II/IV shields with matching light dots.
-function drawNumberDebuff(p){
- const q=px(p),x=q.x+10,y=q.y-35,w=25,h=32;
- ctx.save();
- ctx.beginPath();ctx.moveTo(x+3,y+7);ctx.lineTo(x+w-3,y+7);ctx.quadraticCurveTo(x+w,y+7,x+w,y+10);ctx.lineTo(x+w,y+h-7);ctx.quadraticCurveTo(x+w/2,y+h+3,x,y+h-7);ctx.lineTo(x,y+10);ctx.quadraticCurveTo(x,y+7,x+3,y+7);
- const fill=ctx.createLinearGradient(x,y+7,x,y+h);fill.addColorStop(0,'#3d414d');fill.addColorStop(1,p.number%2?'#4855ac':'#ac4789');ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle='#a9adb7';ctx.lineWidth=1.5;ctx.stroke();
+function drawNumberDebuff(p,painter=ctx,origin=null){
+ const q=origin||px(p),x=origin?q.x:q.x+10,y=origin?q.y:q.y-35,w=25,h=32;
+ painter.save();
+ painter.beginPath();painter.moveTo(x+3,y+7);painter.lineTo(x+w-3,y+7);painter.quadraticCurveTo(x+w,y+7,x+w,y+10);painter.lineTo(x+w,y+h-7);painter.quadraticCurveTo(x+w/2,y+h+3,x,y+h-7);painter.lineTo(x,y+10);painter.quadraticCurveTo(x,y+7,x+3,y+7);
+ const fill=painter.createLinearGradient(x,y+7,x,y+h);fill.addColorStop(0,'#3d414d');fill.addColorStop(1,p.number%2?'#4855ac':'#ac4789');painter.fillStyle=fill;painter.fill();painter.strokeStyle='#a9adb7';painter.lineWidth=1.5;painter.stroke();
  const dots={1:[[0,0]],2:[[-5,0],[5,0]],3:[[0,-5],[-5,4],[5,4]],4:[[-5,-5],[5,-5],[-5,4],[5,4]]};
- ctx.shadowColor=p.number%2?'#acbfff':'#ffbce9';ctx.shadowBlur=5;ctx.fillStyle='#f0eeff';
- for(const [dx,dy] of dots[p.number]){ctx.beginPath();ctx.arc(x+w/2+dx,y+22+dy,3,0,Math.PI*2);ctx.fill()}
- ctx.shadowBlur=0;ctx.font='bold 18px Georgia,serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.strokeStyle='#25262c';ctx.lineWidth=3;ctx.strokeText(['I','II','III','IV'][p.number-1],x+w/2,y+8);ctx.fillStyle='#fff';ctx.fillText(['I','II','III','IV'][p.number-1],x+w/2,y+8);
- ctx.restore();
+ painter.shadowColor=p.number%2?'#acbfff':'#ffbce9';painter.shadowBlur=5;painter.fillStyle='#f0eeff';
+ for(const [dx,dy] of dots[p.number]){painter.beginPath();painter.arc(x+w/2+dx,y+22+dy,3,0,Math.PI*2);painter.fill()}
+ painter.shadowBlur=0;painter.font='bold 18px Georgia,serif';painter.textAlign='center';painter.textBaseline='middle';painter.lineJoin='round';painter.strokeStyle='#25262c';painter.lineWidth=3;painter.strokeText(['I','II','III','IV'][p.number-1],x+w/2,y+8);painter.fillStyle='#fff';painter.fillText(['I','II','III','IV'][p.number-1],x+w/2,y+8);
+ painter.restore();
 }
 function draw(){
  ctx.clearRect(0,0,900,900);
@@ -50,7 +50,7 @@ function draw(){
  pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:0},44,'#cad9df',600);
  for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,.97,null,'#ffffff',2.5);pathCircle(p,.76,colors[p.role],'#0b1723',2);text(p.role,p,14,'#0b1723',750);if(you)text('YOU',{x:p.x,y:p.y+1.35},12,'#ffffff',650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+(you?2.2:1.35)},12,'#ffb6ba')}
  // Draw badges after all players so a neighboring body cannot cover the number.
- if(sim.numbersVisible)for(const p of sim.players)drawNumberDebuff(p);
+ if(sim.numbersVisible&&$('fieldDebuffs').checked)for(const p of sim.players)drawNumberDebuff(p);
 }
 function ui(){
  const p=sim.user,r=sim.round,job=sim.job(p),ready=sim.state==='ready';
@@ -62,16 +62,41 @@ function ui(){
  $('instruction').textContent=(!sim.numbersVisible?'Cマーカーに集合。サークルプログラムの詠唱完了を待ちます。':sim.round===0&&sim.total<7.5?(p.number===3?'Cからまっすぐボスへ近づき、出現した線を受け取ります。':'線出現後1.5秒はCで待機してから移動します。'):sim.total<p.waitUntil?'爆発位置から少し内側へ寄り、次の担当へ線を渡します。':sim.message)||({塔:'担当の塔に入り、発動まで待ちます。',線:'線に触れて受け取り、所持を確認して担当の外周まで伸ばします。',休み:'塔の外で、ブラスターに巻き込まれない場所ならどこでも待機できます。'}[job]);
  $('tetherstate').textContent=sim.holding(p)>=0?'線：所持中 — 次の担当が受け取るまで残ります':'線：未所持';
  $('timeline').innerHTML=Array.from({length:4},(_,i)=>`<div class="step ${i===r?'active':i<r?'done':''}"><small>${i+1}回目</small>${sim.numbersVisible?action(p.number,i):'？'}</div>`).join('');
- $('party').innerHTML=sim.players.map((x,i)=>`<div class="party-row ${x===p?'you':''}"><span class="dot" style="background:${colors[x.role]}"></span><strong>${x.role}</strong><span>${sim.numbersVisible?x.number:"？"}</span><span class="debuff">${sim.holding(x)>=0?'線 ':''}${x.scarUntil>sim.total?'刻印 '+Math.ceil(x.scarUntil-sim.total)+'s':sim.numbersVisible?sim.job(x):"未付与"}${x.hpUntil>sim.total?' / HP↓':''}</span></div>`).join('');
+ updateParty();
  $('start').disabled=!ready;$('pause').disabled=!['running','paused'].includes(sim.state);$('pause').textContent=sim.state==='paused'?'再開':'一時停止';
  for(const id of ['role','number','pattern','blastRadius'])$(id).disabled=sim.state==='running'||sim.state==='paused';
  const b=$('banner');b.hidden=sim.state==='running';b.className='banner'+(sim.state==='failed'?' error':sim.state==='cleared'?' success':'');
  if(!b.hidden){const headings={ready:'自分の役割を選んで、練習開始',paused:'一時停止',failed:`第${r+1}回：もう一度練習しよう`,cleared:'全4回の処理に成功'};b.replaceChildren();const strong=document.createElement('strong'),span=document.createElement('span');strong.textContent=headings[sim.state];span.textContent=sim.state==='ready'?`${p.role}・${p.number}番 / 正解ガイドは設定で切り替えできます`:sim.state==='paused'?'再開ボタンまたは Space で続ける':sim.state==='failed'?sim.message.split('\n').slice(0,4).join('\n'):'おつかれさまでした。次はガイドなしにも挑戦できます。';b.append(strong,span)}
 }
 const controlKeys=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D'];
-window.addEventListener('keydown',e=>{if(['SELECT','INPUT','TEXTAREA'].includes(e.target.tagName))return;if(controlKeys.includes(e.key)){e.preventDefault();keys.add(e.key.toLowerCase())}if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat)pause()}});
+window.addEventListener('keydown',e=>{if(['SELECT','INPUT','TEXTAREA','BUTTON'].includes(e.target.tagName))return;if(controlKeys.includes(e.key)){e.preventDefault();keys.add(e.key.toLowerCase())}if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat)pause()}});
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();if(sim.state==='running')pause()});
 canvas.addEventListener('pointerdown',e=>{const rect=canvas.getBoundingClientRect();const x=((e.clientX-rect.left)/rect.width*900-C)/S,y=((e.clientY-rect.top)/rect.height*900-C)/S;sim.user.target={x,y};canvas.focus();e.preventDefault()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&sim.state==='running')pause()});
 function frame(time){let dt=Math.min((time-last)/1000||0,.05);last=time;const direction={x:(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),y:(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0)};sim.tick(dt*Number($('speed').value),{direction});draw();if(time-lastUI>80){ui();lastUI=time}requestAnimationFrame(frame)}
+
+// Display order is independent of mechanic priority.
+let partyOrder=[...ROLES];
+try{const saved=JSON.parse(localStorage.getItem('omega-party-order'));if(Array.isArray(saved)&&saved.length===ROLES.length&&new Set(saved).size===ROLES.length&&saved.every(role=>ROLES.includes(role)))partyOrder=saved;const visible=localStorage.getItem('omega-field-debuffs');if(visible!==null)$('fieldDebuffs').checked=visible==='true'}catch{}
+$('fieldDebuffs').onchange=()=>{try{localStorage.setItem('omega-field-debuffs',String($('fieldDebuffs').checked))}catch{}draw()};
+const debuffImages=Array.from({length:4},(_,i)=>{const icon=document.createElement('canvas');icon.width=29;icon.height=36;drawNumberDebuff({number:i+1},icon.getContext('2d'),{x:2,y:0});return icon.toDataURL()});
+const partyRows=new Map();
+for(const role of ROLES){
+ const row=document.createElement('div');row.className='party-row';
+ row.innerHTML=`<span class="dot" style="background:${colors[role]}"></span><strong>${role}</strong><span class="party-number"><img class="party-number-icon" width="29" height="36" hidden><span class="pending-number" aria-label="番号未付与">？</span></span><span class="debuff"></span><span class="party-order"><button type="button" data-step="-1" aria-label="${role}を上へ">↑</button><button type="button" data-step="1" aria-label="${role}を下へ">↓</button></span>`;
+ row.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{const from=partyOrder.indexOf(role),to=from+Number(button.dataset.step);if(to<0||to>=partyOrder.length)return;[partyOrder[from],partyOrder[to]]=[partyOrder[to],partyOrder[from]];try{localStorage.setItem('omega-party-order',JSON.stringify(partyOrder))}catch{}arrangeParty();updateParty();button.focus({preventScroll:true})}));
+ partyRows.set(role,row);
+}
+function arrangeParty(){for(const role of partyOrder)$('party').append(partyRows.get(role))}
+function updateParty(){
+ for(const [i,role] of partyOrder.entries()){
+  const row=partyRows.get(role),p=sim.byRole(role),icon=row.querySelector('img');row.classList.toggle('you',p===sim.user);
+  icon.hidden=!sim.numbersVisible;row.querySelector('.pending-number').hidden=sim.numbersVisible;
+  if(sim.numbersVisible){const source=debuffImages[p.number-1];if(icon.getAttribute('src')!==source)icon.src=source;icon.alt=`${p.number}番のデバフ`}
+  row.querySelector('.debuff').textContent=(sim.holding(p)>=0?'線 ':'')+(p.scarUntil>sim.total?'刻印 '+Math.ceil(p.scarUntil-sim.total)+'s':sim.numbersVisible?sim.job(p):'未付与')+(p.hpUntil>sim.total?' / HP↓':'');
+  row.querySelector('[data-step="-1"]').disabled=i===0;row.querySelector('[data-step="1"]').disabled=i===partyOrder.length-1;
+ }
+}
+arrangeParty();
+
 reset();requestAnimationFrame(frame);
