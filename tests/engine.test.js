@@ -95,7 +95,7 @@ test('waiting players may occupy any safe point outside towers',()=>{
  for(const p of rest){const original=s.goal(p),q=candidates.find(q=>Math.hypot(q.x-original.x,q.y-original.y)>4);assert.ok(q);Object.assign(p,q)}
  s.resolve();assert.equal(s.history[0].errors.length,0);assert.equal(s.round,1);
 });
-test('line extension begins immediately when clear or no later than 1.5 seconds after pickup',()=>{
+test('line extension begins immediately when clear or no later than 3 seconds after pickup',()=>{
  const s=new Simulation({rng:random(1)});s.start();s.total=10;s.elapsed=10;
  const p=s.players.find(p=>s.job(p)==='線'),other=s.players.find(x=>x!==p&&s.job(x)==='線');
  s.tethers=[{owner:p.role,contacts:new Set()},{owner:other.role,contacts:new Set()}];
@@ -103,8 +103,8 @@ test('line extension begins immediately when clear or no later than 1.5 seconds 
  const g=s.goal(p),r=s.config.pickupRadius;Object.assign(p,{x:g.x/18*r,y:g.y/18*r,tetherAcquiredAt:10,extending:false});
  s.bot(p,.01);assert.equal(p.extending,true);
  const block=s.players.find(x=>s.job(x)==='休み');Object.assign(block,g);p.extending=false;p.tetherAcquiredAt=10;
- s.total=11.49;s.bot(p,.01);assert.equal(p.extending,false);
- s.total=11.5;s.bot(p,.01);assert.equal(p.extending,true);
+ s.total=12.99;s.bot(p,.01);assert.equal(p.extending,false);
+ s.total=13;s.bot(p,.01);assert.equal(p.extending,true);
 });
 test('next tether receivers wait safely closer to their assigned line',()=>{
  for(let seed=0;seed<20;seed++){
