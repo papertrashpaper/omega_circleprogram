@@ -7,7 +7,7 @@
 <section class="card assignment"><span class="eyebrow">YOUR ASSIGNMENT</span><div class="assignment-main"><div id="badge" class="number-badge">1</div><div><h2 id="myrole">H2 <span>優先度：低</span></h2><p id="task">1回目：塔を踏む</p></div></div><p id="instruction" class="instruction">開始後、光るガイドの位置へ移動してください。</p><div id="tetherstate" class="tether-state">線：未所持</div></section>
 <section class="card"><div class="section-title"><h2>処理順</h2><span class="muted">塔 1234 / 線 3412</span></div><div id="timeline" class="timeline"></div></section>
 <section class="card"><div class="section-title"><h2>パーティ</h2><span class="muted">優先度順</span></div><div id="party" class="party"></div></section></aside>
-<section class="notes"><details><summary>この試作品のルール・調整項目</summary><p>優先度：H1 ＞ MT ＞ ST ＞ D1 ＞ D2 ＞ D3 ＞ D4 ＞ H2。北側の候補から時計回りに担当を決定します。塔のない2方向へ線を伸ばします。自分以外の7人は自動で動きます。</p><p>線は持ち主またはボスと持ち主を結ぶ線に触れると、自動で受け取ります。担当外でも取得するので、移動時の横切りに注意してください。同じ線に触れ続けている間は取り直さず、一度離れて再接触すると再取得できます。初回のみランダム付与され、爆発後も次の担当が取るまで残ります。</p><p>塔は担当者1名、ブラスターは自分以外を巻き込まないことが成功条件です。塔・線の優先度も確認します。待機者は安全な塔側へ移動します。</p><p>開幕4秒詠唱→番号付与→1秒後に塔→さらに1秒後に線とブラスター8秒詠唱。開始14秒で初回爆発、以降8秒間隔です。各爆発の1秒前に次の塔予兆が出ます（青色表示）。開幕はC集合、3番のみボスへ直進。他のNPCは線出現後2.5秒待機し、以降は前の線担当NPCが爆発後2.5秒待機します。自分の移動は手動操作です。フィールド・範囲半径、移動速度、線の取得距離は仮値です。実測再現ではありません。「破滅の刻印：弐」「最大HPダウン」は表示し、連続処理を禁止します。戦闘ダメージ・回復・スキルは再現しません。</p><div class="fields"><label>ブラスター半径（仮）<input id="blastRadius" type="number" min="10" max="18" step="0.5" value="16"></label></div></details><p class="footer">非公式の練習用シミュレーター。SQUARE ENIXとは関係ありません。ゲームの映像・画像素材は収録していません。</p></section></main><script type="module">
+<section class="notes"><details><summary>この試作品のルール・調整項目</summary><p>優先度：H1 ＞ MT ＞ ST ＞ D1 ＞ D2 ＞ D3 ＞ D4 ＞ H2。北側の候補から時計回りに担当を決定します。塔のない2方向へ線を伸ばします。自分以外の7人は自動で動きます。線担当NPCはボス付近で線を取り、他の6人の退避を待ってから伸ばします。担当外NPCは中央を横切らず、外周沿いに移動します。</p><p>線は持ち主またはボスと持ち主を結ぶ線に触れると、自動で受け取ります。NPCを含め担当外でも取得するので、移動時の横切りに注意してください。同じ線に触れ続けている間は取り直さず、一度離れて再接触すると再取得できます。初回のみランダム付与され、爆発後も次の担当が取るまで残ります。</p><p>塔は担当者1名、ブラスターは自分以外を巻き込まないことが成功条件です。塔・線の優先度も確認します。待機者は安全な塔側へ移動します。</p><p>開幕4秒詠唱→番号付与→1秒後に塔→さらに1秒後に線とブラスター8秒詠唱。開始14秒で初回爆発、以降8秒間隔です。各爆発の1秒前に次の塔予兆が出ます（黄色表示）。開幕はC集合、3番のみボスへ直進。他のNPCは線出現後2.5秒待機し、以降は前の線担当NPCが爆発後2.5秒待機します。自分の移動は手動操作です。フィールド・範囲半径、移動速度、線の取得距離は仮値です。実測再現ではありません。「破滅の刻印：弐」「最大HPダウン」は表示し、連続処理を禁止します。戦闘ダメージ・回復・スキルは再現しません。</p><div class="fields"><label>ブラスター半径（仮）<input id="blastRadius" type="number" min="10" max="18" step="0.5" value="16"></label></div></details><p class="footer">非公式の練習用シミュレーター。SQUARE ENIXとは関係ありません。ゲームの映像・画像素材は収録していません。</p></section></main><script type="module">
 const ROLES=['H1','MT','ST','D1','D2','D3','D4','H2'];
 const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:6,firstDuration:14,roundDuration:8,waitDuration:2.5};
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -15,14 +15,16 @@ const polar=(a,r)=>({x:Math.sin(a)*r,y:-Math.cos(a)*r});
 const action=(n,round)=>n===round+1?'塔':n===((round+2)%4)+1?'線':'休み';
 const shuffled=(a,rng)=>{a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 function segmentDistance(p,b){let l=b.x*b.x+b.y*b.y;let t=l?Math.max(0,Math.min(1,(p.x*b.x+p.y*b.y)/l)):0;return Math.hypot(p.x-b.x*t,p.y-b.y*t)}
-function makeLayout(rng=Math.random,mode='random'){
+function makeLayout(rng=Math.random,mode='random',previous=null){
  const first=Math.floor(rng()*4), delta=mode==='opposite'?2:mode==='adjacent'?(rng()<.5?1:3):1+Math.floor(rng()*3);
- const dirs=[first,(first+delta)%4].sort((a,b)=>a-b),offset=(rng()<.5?-1:1)*Math.atan(3/12);
+ const dirs=[first,(first+delta)%4].sort((a,b)=>a-b);
+ let offset=(rng()<.5?-1:1)*Math.atan(3/12);
+ if(previous&&dirs.some(d=>previous.dirs.includes(d)))offset=-previous.offset;
  return {dirs,offset,towers:dirs.map(d=>({...polar(d*Math.PI/2+offset,CONFIG.towerDistance),dir:d})),lines:[0,1,2,3].filter(d=>!dirs.includes(d)).map(d=>({...polar(d*Math.PI/2+offset,CONFIG.outerDistance),dir:d}))};
 }
 class Simulation{
  constructor({role='H2',number=1,pattern='random',rng=Math.random,config={}}={}){
-  this.config={...CONFIG,...config};this.rng=rng;this.pattern=pattern;this.userRole=role;this.round=0;this.elapsed=0;this.total=0;this.state='ready';this.message='';this.history=[];this.effects=[];this.layouts=Array.from({length:4},()=>makeLayout(rng,pattern));
+  this.config={...CONFIG,...config};this.rng=rng;this.pattern=pattern;this.userRole=role;this.round=0;this.elapsed=0;this.total=0;this.state='ready';this.message='';this.history=[];this.effects=[];this.layouts=[];for(let i=0;i<4;i++)this.layouts.push(makeLayout(rng,pattern,this.layouts[i-1]));
   const n=number||1+Math.floor(rng()*4),nums=[1,1,2,2,3,3,4,4];nums.splice(nums.indexOf(n),1);const rest=shuffled(nums,rng);
   this.players=ROLES.map((role,i)=>({role,number:role===this.userRole?n:rest.pop(),x:(i-3.5)*.3,y:16.4,target:null,waitUntil:0,scarUntil:0,hpUntil:0}));
   this.user=this.players.find(p=>p.role===this.userRole);const owners=shuffled(this.players,rng);this.initialOwners=owners.slice(0,2).map(p=>p.role);this.tethers=[];
@@ -67,25 +69,49 @@ class Simulation{
   }
  }
  move(p,target,dt,speed=this.config.moveSpeed){const d=distance(p,target);if(d<.01)return;const k=Math.min(1,speed*dt/d);p.x+=(target.x-p.x)*k;p.y+=(target.y-p.y)*k;const r=Math.hypot(p.x,p.y);if(r>19){p.x*=19/r;p.y*=19/r}}
+ // Route non-receivers around the arena instead of cutting through the boss.
+ peripheralMove(p,goal,dt){
+  const radius=Math.max(Math.hypot(p.x,p.y),Math.hypot(goal.x,goal.y),12.4);
+  const angle=Math.atan2(p.x,-p.y),end=Math.atan2(goal.x,-goal.y);
+  const turn=Math.atan2(Math.sin(end-angle),Math.cos(end-angle));
+  // Budget the longer peripheral detour so the receivers still have time to extend.
+  // This is NPC pacing only; manual player movement keeps its original speed.
+  const routeLength=Math.max(0,radius-Math.hypot(p.x,p.y))+Math.abs(turn)*radius+Math.abs(radius-Math.hypot(goal.x,goal.y));
+  const speed=Math.min(30,Math.max(this.config.moveSpeed,routeLength/Math.max(.6,this.remaining-3.2)));
+  let target;
+  if(Math.abs(turn)>.035){
+   if(Math.hypot(p.x,p.y)<radius-.2)target=polar(angle,radius);
+   else target=polar(angle+Math.sign(turn)*Math.min(Math.abs(turn),speed*dt/radius),radius);
+  }else target=goal;
+  const d=distance(p,target),k=d?Math.min(1,speed*dt/d):0;
+  const next={x:p.x+(target.x-p.x)*k,y:p.y+(target.y-p.y)*k};
+  // Pause before crossing a live line. Allow leaving a contact already occupied.
+  const blocked=this.tethers.some(t=>{
+   if(t.owner===p.role)return false;
+   const owner=this.byRole(t.owner),before=segmentDistance(p,owner),after=segmentDistance(next,owner);
+   return after<this.config.transferDistance+.2&&after<before-1e-6;
+  });
+  if(!blocked)this.move(p,target,dt,speed);
+ }
  bot(p,dt){
   const job=this.job(p),rank=this.rank(p);
   if(this.total<4)return;
-  if(this.round===0&&this.total<6){if(p.number===3)this.move(p,{x:p.x,y:10},dt);return}
+  if(this.round===0&&this.total<6){if(p.number===3)this.move(p,{x:p.x,y:2.2},dt);return}
   if(this.round===0&&p.number!==3&&this.total<6+this.config.waitDuration)return;
   if(this.total<p.waitUntil)return;
-  if(job==='線'&&this.holding(p)<0){
-   const available=this.tethers.map((t,i)=>i).filter(i=>this.job(this.byRole(this.tethers[i].owner))!=='線');
-   const index=available.includes(rank)?rank:available[0];
-   if(index===undefined)return;
-   const owner=this.byRole(this.tethers[index].owner);
-   const target={x:owner.x*.27,y:owner.y*.27};this.move(p,target,dt);
-   this.take(p,index);
-  }else{
-   // Receivers stay near the centre until both intended tether holders are ready.
-   const holdersReady=this.tethers.every(t=>this.job(this.byRole(t.owner))==='線');
-   const g=job==='線'&&(!holdersReady||this.elapsed<(this.round===0?7:1))?polar((rank?1:-1)*Math.PI/2,2.5):this.goal(p);
-   this.move(p,g,dt);
-  }
+  if(job==='線'){
+   if(this.holding(p)<0){
+    // Everyone can take a line; intended receivers approach the boss to collect theirs.
+    this.move(p,polar(rank?Math.PI/2:-Math.PI/2,.7),dt);
+    return;
+   }
+   const holdersReady=this.tethers.length===2&&this.tethers.every(t=>this.job(this.byRole(t.owner))==='線');
+   const othersSafe=this.players.filter(x=>this.job(x)!=='線').every(x=>
+    distance(x,this.goal(x))<3&&this.layout.lines.every(g=>segmentDistance(x,g)>this.config.transferDistance+.5));
+   // Commit to extending only after both lines and the other six players are ready.
+   if(holdersReady&&othersSafe)this.linesReleased=true;
+   this.move(p,this.linesReleased?this.goal(p):polar(rank?Math.PI/2:-Math.PI/2,.7),dt);
+  }else this.peripheralMove(p,this.goal(p),dt);
  }
  tick(dt,{direction=null,sprint=false,autoUser=false}={}){
   if(this.state!=='running')return;
@@ -97,7 +123,7 @@ class Simulation{
   }
   for(const p of this.players)if(p!==this.user||autoUser)this.bot(p,dt);
   if(!autoUser){if(direction&&(direction.x||direction.y)){this.user.target=null;let len=Math.hypot(direction.x,direction.y);this.move(this.user,{x:this.user.x+direction.x/len,y:this.user.y+direction.y/len},dt,this.config.moveSpeed*(sprint?1.3:1))}else if(this.user.target)this.move(this.user,this.user.target,dt,this.config.moveSpeed*(sprint?1.3:1))}
-  if(!autoUser)this.contact();
+  for(const p of this.players)this.contact(p);
   this.effects=this.effects.filter(e=>e.until>this.total);
   if(this.elapsed>=this.duration)this.resolve();
  }
@@ -120,7 +146,7 @@ class Simulation{
   for(const p of this.players)if(this.job(p)!=='休み'){p.scarUntil=this.total+10;if(this.job(p)==='線')p.hpUntil=this.total+10}
   if(this.round===3){this.state='cleared';this.message='4回すべての処理に成功しました';return}
   for(const p of holders)p.waitUntil=this.total+this.config.waitDuration;
-  this.round++;this.elapsed=0;this.message=`${this.round}回目成功。次の担当へ`;
+  this.linesReleased=false;this.round++;this.elapsed=0;this.message=`${this.round}回目成功。次の担当へ`;
  }
 }
 
@@ -144,9 +170,16 @@ function draw(){
  // Tower candidates are all shown faintly before starting.
  if(sim.state==='ready'){for(let i=0;i<4;i++)for(const sign of [-1,1])pathCircle(polar(i*Math.PI/2+sign*Math.atan(3/12),12.4),.4,'#556b7844',null)}
  if(sim.state!=='ready'){
-  for(const t of (sim.towersVisible?sim.layout.towers:[])){pathCircle(t,sim.config.towerRadius,'#eed17320','#f1d38a',3);pathCircle(t,sim.config.towerRadius*.76,null,'#f1d38a50',1);text(String(sim.round+1),t,30,'#ffe9aa',650);const q=px(t);ctx.beginPath();ctx.arc(q.x,q.y,sim.config.towerRadius*S+5,-Math.PI/2,-Math.PI/2+Math.PI*2*sim.elapsed/sim.duration);ctx.strokeStyle='#fff2c9';ctx.lineWidth=3;ctx.stroke()}
-  if(sim.nextTowersVisible)for(const t of sim.layouts[sim.round+1].towers){pathCircle(t,sim.config.towerRadius,'#91c9ff10','#91c9ff',2);text(`次 ${sim.round+2}`,t,18,'#b7dcff',600)}
-  for(const tether of sim.tethers){const p=sim.byRole(tether.owner);line({x:0,y:0},p,'#f6aa56',4);pathCircle(p,1,null,'#ffd490',2)}
+  const drawTower=(t,number,upcoming=false)=>{
+   const occupied=sim.players.some(p=>distance(p,t)<=sim.config.towerRadius);
+   pathCircle(t,sim.config.towerRadius,occupied?'#ffd43ba0':'#ffe69b25',occupied?'#ffd43b':'#f1d38a',3);
+   pathCircle(t,sim.config.towerRadius*.76,null,occupied?'#ffe269':'#f1d38a50',1);
+   if($('hints').checked)text(upcoming?`次 ${number}`:String(number),t,upcoming?18:30,'#ffe9aa',650);
+   if(!upcoming){const q=px(t);ctx.beginPath();ctx.arc(q.x,q.y,sim.config.towerRadius*S+5,-Math.PI/2,-Math.PI/2+Math.PI*2*sim.elapsed/sim.duration);ctx.strokeStyle='#fff2c9';ctx.lineWidth=3;ctx.stroke()}
+  };
+  if(sim.towersVisible)for(const t of sim.layout.towers)drawTower(t,sim.round+1);
+  if(sim.nextTowersVisible)for(const t of sim.layouts[sim.round+1].towers)drawTower(t,sim.round+2,true);
+  for(const tether of sim.tethers){const p=sim.byRole(tether.owner);line({x:0,y:0},p,'#f6aa56',4);pathCircle(p,1.6,null,'#ffd490',2)}
   for(const e of sim.effects)pathCircle(e,e.radius,'#ff637c28','#ff7889a0',2);
   if($('hints').checked&&sim.state!=='cleared'&&sim.towersVisible){
    const g=sim.goal(sim.user);line(sim.user,g,'#76eddb70',2,[6,7]);pathCircle(g,1.05,'#6ee7d11c','#6ee7d1',2);text('目標',{x:g.x,y:g.y-1.8},16,'#99f5e4',600);
@@ -154,7 +187,7 @@ function draw(){
   }
  }
  pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:-.25},34,'#cad9df',600);text('OMEGA',{x:0,y:1.1},10,'#91a6b6');
- for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,.87,null,'#ffffff',2.5);pathCircle(p,.57,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,14,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.15},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.1},12,'#ffb6ba')}
+ for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,1.45,null,'#ffffff',2.5);pathCircle(p,1.14,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,24,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.95},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.85},12,'#ffb6ba')}
 }
 function ui(){
  const p=sim.user,r=sim.round,job=sim.job(p),ready=sim.state==='ready';

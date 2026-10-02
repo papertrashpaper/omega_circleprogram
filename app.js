@@ -19,9 +19,16 @@ function draw(){
  // Tower candidates are all shown faintly before starting.
  if(sim.state==='ready'){for(let i=0;i<4;i++)for(const sign of [-1,1])pathCircle(polar(i*Math.PI/2+sign*Math.atan(3/12),12.4),.4,'#556b7844',null)}
  if(sim.state!=='ready'){
-  for(const t of (sim.towersVisible?sim.layout.towers:[])){pathCircle(t,sim.config.towerRadius,'#eed17320','#f1d38a',3);pathCircle(t,sim.config.towerRadius*.76,null,'#f1d38a50',1);text(String(sim.round+1),t,30,'#ffe9aa',650);const q=px(t);ctx.beginPath();ctx.arc(q.x,q.y,sim.config.towerRadius*S+5,-Math.PI/2,-Math.PI/2+Math.PI*2*sim.elapsed/sim.duration);ctx.strokeStyle='#fff2c9';ctx.lineWidth=3;ctx.stroke()}
-  if(sim.nextTowersVisible)for(const t of sim.layouts[sim.round+1].towers){pathCircle(t,sim.config.towerRadius,'#91c9ff10','#91c9ff',2);text(`次 ${sim.round+2}`,t,18,'#b7dcff',600)}
-  for(const tether of sim.tethers){const p=sim.byRole(tether.owner);line({x:0,y:0},p,'#f6aa56',4);pathCircle(p,1,null,'#ffd490',2)}
+  const drawTower=(t,number,upcoming=false)=>{
+   const occupied=sim.players.some(p=>distance(p,t)<=sim.config.towerRadius);
+   pathCircle(t,sim.config.towerRadius,occupied?'#ffd43ba0':'#ffe69b25',occupied?'#ffd43b':'#f1d38a',3);
+   pathCircle(t,sim.config.towerRadius*.76,null,occupied?'#ffe269':'#f1d38a50',1);
+   if($('hints').checked)text(upcoming?`次 ${number}`:String(number),t,upcoming?18:30,'#ffe9aa',650);
+   if(!upcoming){const q=px(t);ctx.beginPath();ctx.arc(q.x,q.y,sim.config.towerRadius*S+5,-Math.PI/2,-Math.PI/2+Math.PI*2*sim.elapsed/sim.duration);ctx.strokeStyle='#fff2c9';ctx.lineWidth=3;ctx.stroke()}
+  };
+  if(sim.towersVisible)for(const t of sim.layout.towers)drawTower(t,sim.round+1);
+  if(sim.nextTowersVisible)for(const t of sim.layouts[sim.round+1].towers)drawTower(t,sim.round+2,true);
+  for(const tether of sim.tethers){const p=sim.byRole(tether.owner);line({x:0,y:0},p,'#f6aa56',4);pathCircle(p,1.6,null,'#ffd490',2)}
   for(const e of sim.effects)pathCircle(e,e.radius,'#ff637c28','#ff7889a0',2);
   if($('hints').checked&&sim.state!=='cleared'&&sim.towersVisible){
    const g=sim.goal(sim.user);line(sim.user,g,'#76eddb70',2,[6,7]);pathCircle(g,1.05,'#6ee7d11c','#6ee7d1',2);text('目標',{x:g.x,y:g.y-1.8},16,'#99f5e4',600);
@@ -29,7 +36,7 @@ function draw(){
   }
  }
  pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:-.25},34,'#cad9df',600);text('OMEGA',{x:0,y:1.1},10,'#91a6b6');
- for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,.87,null,'#ffffff',2.5);pathCircle(p,.57,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,14,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.15},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.1},12,'#ffb6ba')}
+ for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,1.45,null,'#ffffff',2.5);pathCircle(p,1.14,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,24,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.95},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.85},12,'#ffb6ba')}
 }
 function ui(){
  const p=sim.user,r=sim.round,job=sim.job(p),ready=sim.state==='ready';
