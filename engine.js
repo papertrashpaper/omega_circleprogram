@@ -1,5 +1,5 @@
 export const ROLES=['H1','MT','ST','D1','D2','D3','D4','H2'];
-export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:8,firstDuration:14,roundDuration:8,waitDuration:1.5,extendWaitMax:3,pickupRadius:3.5,avoidRadius:5.5};
+export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:8,firstDuration:14,roundDuration:8,waitDuration:1.5,extendWaitMax:3,pickupRadius:3.5,tetherWaitRadius:4,avoidRadius:6,standbyBlastMargin:3.1,retreatRadius:16};
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const polar=(a,r)=>({x:Math.sin(a)*r,y:-Math.cos(a)*r});
 export const action=(n,round)=>n===round+1?'塔':n===((round+2)%4)+1?'線':'休み';
@@ -47,7 +47,7 @@ export class Simulation{
   let best=fallback,score=Infinity;
   for(let r=this.config.avoidRadius;r<=17;r+=.5)for(let i=0;i<72;i++){
    const point=polar(i*Math.PI/36,r);
-   if(!this.safeWaitingPoint(point)||this.layout.lines.some(g=>distance(point,g)<this.config.blastRadius+.3||segmentDistance(point,g)<this.config.transferDistance+.4)||this.layout.towers.some(t=>distance(point,t)<this.config.towerRadius+.4))continue;
+   if(!this.safeWaitingPoint(point)||this.layout.lines.some(g=>distance(point,g)<this.config.blastRadius+this.config.standbyBlastMargin||segmentDistance(point,g)<this.config.transferDistance+.4)||this.layout.towers.some(t=>distance(point,t)<this.config.towerRadius+.4))continue;
    const value=next?distance(point,pickup):distance(point,p);
    if(value<score){score=value;best=point}
   }
@@ -147,7 +147,10 @@ export class Simulation{
   if(this.total<4)return;
   if(this.round===0&&this.total<6){if(p.number===3)this.move(p,{x:0,y:4.2},dt);return}
   if(this.round===0&&p.number!==3&&this.total<6+this.config.waitDuration)return;
-  if(this.total<p.waitUntil)return;
+  if(this.total<p.waitUntil){
+   if(p.retreatGoal)this.move(p,p.retreatGoal,dt);
+   return;
+  }
   if(job==='線'){
    if(this.holding(p)<0){
     const index=this.pickupOrder?.[rank],tether=this.tethers[index];
@@ -174,7 +177,7 @@ export class Simulation{
    const destination=this.goal(p);
    const clear=this.players.filter(x=>x!==p&&this.job(x)!=='線').every(x=>
     distance(x,destination)>=this.config.blastRadius&&segmentDistance(x,destination)>this.config.transferDistance+.5);
-   const waiting=polar(Math.atan2(destination.x,-destination.y),this.config.pickupRadius);
+   const waiting=polar(Math.atan2(destination.x,-destination.y),this.config.tetherWaitRadius);
    if(distance(p,waiting)<.15&&p.extendWaitingAt===undefined)p.extendWaitingAt=this.total;
    if(clear||(this.total-p.tetherAcquiredAt>=this.config.extendWaitMax-1e-8))p.extending=true;
    this.move(p,p.extending?destination:waiting,dt);
@@ -214,7 +217,7 @@ export class Simulation{
   if(errors.length){this.state='failed';this.message=[...new Set(errors)].join('\n');return}
   for(const p of this.players)if(this.job(p)!=='休み'){p.scarUntil=this.total+10;if(this.job(p)==='線')p.hpUntil=this.total+10}
   if(this.round===3){this.state='cleared';this.message='4回すべての処理に成功しました';return}
-  for(const p of holders)p.waitUntil=this.total+this.config.waitDuration;
+  for(const p of holders){p.waitUntil=this.total+this.config.waitDuration;p.retreatGoal=polar(Math.atan2(p.x,-p.y),this.config.retreatRadius);}
   this.linesReleased=false;this.round++;this.elapsed=0;this.assignPickup();this.message=`${this.round}回目成功。次の担当へ`;
  }
 }
