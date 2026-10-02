@@ -1,5 +1,5 @@
 export const ROLES=['H1','MT','ST','D1','D2','D3','D4','H2'];
-export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:8,firstDuration:14,roundDuration:8,waitDuration:1.5,extendWaitMax:3,pickupRadius:3.5,tetherWaitRadius:4,avoidRadius:6,standbyBlastMargin:3.1,retreatRadius:16};
+export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:8,firstDuration:14,roundDuration:8,waitDuration:1.5,extendWaitMax:3,pickupRadius:3.5,tetherWaitRadius:4,avoidRadius:6,standbyBlastMargin:3.1,retreatRadius:14};
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const polar=(a,r)=>({x:Math.sin(a)*r,y:-Math.cos(a)*r});
 export const action=(n,round)=>n===round+1?'塔':n===((round+2)%4)+1?'線':'休み';

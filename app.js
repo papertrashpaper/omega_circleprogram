@@ -35,7 +35,7 @@ function draw(){
    if(sim.tethers.length&&sim.job(sim.user)==='線'&&sim.holding(sim.user)<0){const pickup=sim.pickupGoal(sim.user);pathCircle(pickup,1,null,'#ffc473',2)}
   }
  }
- pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:-.25},34,'#cad9df',600);text('OMEGA',{x:0,y:1.1},10,'#91a6b6');
+ pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:0},44,'#cad9df',600);
  for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,.97,null,'#ffffff',2.5);pathCircle(p,.76,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,16,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.45},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.35},12,'#ffb6ba')}
 }
 function ui(){
@@ -45,7 +45,7 @@ function ui(){
  $('next').textContent=ready?'開始すると4秒間の詠唱が始まります':`塔・ブラスター発動まで ${sim.remaining.toFixed(1)} 秒`;
  const cast=sim.cast;$('cast').hidden=!cast;if(cast){$('castName').textContent=cast.name;$('castTime').textContent=`${cast.remaining.toFixed(1)}秒`;$('castProgress').value=1-cast.remaining/cast.duration}
  $('badge').textContent=sim.numbersVisible?p.number:'?' ;$('myrole').innerHTML=`${p.role} <span>優先度：${sim.numbersVisible?(sim.rank(p)?'低':'高'):'未付与'}</span>`;$('task').textContent=!sim.numbersVisible?'番号付与を待つ':`${r+1}回目：${job==='休み'?'待機':job==='塔'?'塔を踏む':'線を取る'}`;
- $('instruction').textContent=(!sim.numbersVisible?'Cマーカーに集合。サークルプログラムの詠唱完了を待ちます。':sim.round===0&&sim.total<7.5?(p.number===3?'Cからまっすぐボスへ近づき、出現した線を受け取ります。':'線出現後1.5秒はCで待機してから移動します。'):sim.total<p.waitUntil?'爆発位置で1.5秒待機し、次の担当へ線を渡します。':sim.message)||({塔:'担当の塔に入り、発動まで待ちます。',線:'線に触れて受け取り、所持を確認して担当の外周まで伸ばします。',休み:'塔の外で、ブラスターに巻き込まれない場所ならどこでも待機できます。'}[job]);
+ $('instruction').textContent=(!sim.numbersVisible?'Cマーカーに集合。サークルプログラムの詠唱完了を待ちます。':sim.round===0&&sim.total<7.5?(p.number===3?'Cからまっすぐボスへ近づき、出現した線を受け取ります。':'線出現後1.5秒はCで待機してから移動します。'):sim.total<p.waitUntil?'爆発位置から少し内側へ寄り、次の担当へ線を渡します。':sim.message)||({塔:'担当の塔に入り、発動まで待ちます。',線:'線に触れて受け取り、所持を確認して担当の外周まで伸ばします。',休み:'塔の外で、ブラスターに巻き込まれない場所ならどこでも待機できます。'}[job]);
  $('tetherstate').textContent=sim.holding(p)>=0?'線：所持中 — 次の担当が受け取るまで残ります':'線：未所持';
  $('timeline').innerHTML=Array.from({length:4},(_,i)=>`<div class="step ${i===r?'active':i<r?'done':''}"><small>${i+1}回目</small>${sim.numbersVisible?action(p.number,i):'？'}</div>`).join('');
  $('party').innerHTML=sim.players.map((x,i)=>`<div class="party-row ${x===p?'you':''}"><span class="dot" style="background:${colors[x.role]}"></span><strong>${x.role}</strong><span>${sim.numbersVisible?x.number:"？"}</span><span class="debuff">${sim.holding(x)>=0?'線 ':''}${x.scarUntil>sim.total?'刻印 '+Math.ceil(x.scarUntil-sim.total)+'s':sim.numbersVisible?sim.job(x):"未付与"}${x.hpUntil>sim.total?' / HP↓':''}</span></div>`).join('');
