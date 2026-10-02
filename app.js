@@ -32,7 +32,7 @@ function draw(){
   for(const e of sim.effects)pathCircle(e,e.radius,'#ff637c28','#ff7889a0',2);
   if($('hints').checked&&sim.state!=='cleared'&&sim.towersVisible){
    const g=sim.goal(sim.user);line(sim.user,g,'#76eddb70',2,[6,7]);pathCircle(g,1.05,'#6ee7d11c','#6ee7d1',2);text('目標',{x:g.x,y:g.y-1.8},16,'#99f5e4',600);
-   if(sim.tethers.length&&sim.job(sim.user)==='線'&&sim.holding(sim.user)<0){const owner=sim.byRole(sim.tethers[sim.rank(sim.user)].owner);pathCircle({x:owner.x*.3,y:owner.y*.3},1,null,'#ffc473',2)}
+   if(sim.tethers.length&&sim.job(sim.user)==='線'&&sim.holding(sim.user)<0){const pickup=sim.pickupGoal(sim.user);pathCircle(pickup,1,null,'#ffc473',2)}
   }
  }
  pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:-.25},34,'#cad9df',600);text('OMEGA',{x:0,y:1.1},10,'#91a6b6');

@@ -1,5 +1,5 @@
 export const ROLES=['H1','MT','ST','D1','D2','D3','D4','H2'];
-export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:14,firstDuration:14,roundDuration:8,waitDuration:2.5};
+export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:8,firstDuration:14,roundDuration:8,waitDuration:2.5,pickupRadius:3.5,avoidRadius:5.5};
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const polar=(a,r)=>({x:Math.sin(a)*r,y:-Math.cos(a)*r});
 export const action=(n,round)=>n===round+1?'塔':n===((round+2)%4)+1?'線':'休み';
@@ -51,7 +51,9 @@ export class Simulation{
   return true;
  }
  contact(p=this.user){
-  for(let i=0;i<this.tethers.length;i++){
+  const order=this.tethers.map((t,i)=>i),preferred=this.pickupOrder?.[this.rank(p)];
+  if(this.job(p)==='線'&&preferred!==undefined)order.sort((a,b)=>(b===preferred)-(a===preferred));
+  for(const i of order){
    const tether=this.tethers[i],near=segmentDistance(p,this.byRole(tether.owner))<=this.config.transferDistance;
    const entered=near&&!tether.contacts.has(p.role);
    if(near)tether.contacts.add(p.role);else tether.contacts.delete(p.role);
@@ -59,50 +61,70 @@ export class Simulation{
   }
  }
  move(p,target,dt,speed=this.config.moveSpeed){const d=distance(p,target);if(d<.01)return;const k=Math.min(1,speed*dt/d);p.x+=(target.x-p.x)*k;p.y+=(target.y-p.y)*k;const r=Math.hypot(p.x,p.y);if(r>19){p.x*=19/r;p.y*=19/r}}
- // Route non-receivers around the arena instead of cutting through the boss.
+ // Short tangent-and-arc detour outside the waiting tether holders, not the arena edge.
+ routeTarget(p,goal,radius=this.config.avoidRadius){
+  const r=Math.hypot(p.x,p.y),g=Math.hypot(goal.x,goal.y);
+  if(r<radius-.05)return polar(Math.atan2(p.x,-p.y),radius);
+  const dx=goal.x-p.x,dy=goal.y-p.y,l=dx*dx+dy*dy;
+  const u=l?Math.max(0,Math.min(1,-(p.x*dx+p.y*dy)/l)):0;
+  if(Math.hypot(p.x+u*dx,p.y+u*dy)>=radius-.03)return goal;
+  const a=Math.atan2(p.x,-p.y),b=Math.atan2(goal.x,-goal.y),turn=Math.atan2(Math.sin(b-a),Math.cos(b-a));
+  const sign=turn<0?-1:1,offset=Math.acos(Math.min(1,radius/r));
+  return polar(a+sign*Math.max(.035,offset),radius);
+ }
  peripheralMove(p,goal,dt){
-  const radius=Math.max(Math.hypot(p.x,p.y),Math.hypot(goal.x,goal.y),12.4);
-  const angle=Math.atan2(p.x,-p.y),end=Math.atan2(goal.x,-goal.y);
-  const turn=Math.atan2(Math.sin(end-angle),Math.cos(end-angle));
-  const speed=this.config.moveSpeed;
-  let target;
-  if(Math.abs(turn)>.035){
-   if(Math.hypot(p.x,p.y)<radius-.2)target=polar(angle,radius);
-   else target=polar(angle+Math.sign(turn)*Math.min(Math.abs(turn),speed*dt/radius),radius);
-  }else target=goal;
-  const d=distance(p,target),k=d?Math.min(1,speed*dt/d):0;
+  const target=this.routeTarget(p,goal),d=distance(p,target),k=d?Math.min(1,this.config.moveSpeed*dt/d):0;
   const next={x:p.x+(target.x-p.x)*k,y:p.y+(target.y-p.y)*k};
-  // Pause before crossing a live line. Allow leaving a contact already occupied.
   const blocked=this.tethers.some(t=>{
-   if(t.owner===p.role)return false;
+   if(t.owner===p.role||(this.job(p)==='線'&&t===this.tethers[this.pickupOrder?.[this.rank(p)]]))return false;
    const owner=this.byRole(t.owner),before=segmentDistance(p,owner),after=segmentDistance(next,owner);
-   return after<this.config.transferDistance+.2&&after<before-1e-6;
+   return after<this.config.transferDistance+.15&&after<before-1e-6;
   });
-  if(!blocked)this.move(p,target,dt,speed);
+  if(!blocked)this.move(p,target,dt);
+ }
+ assignPickup(){
+  const angle=t=>{const p=this.byRole(t.owner);return (Math.atan2(p.x,-p.y)+Math.PI*2+Math.PI/4)%(Math.PI*2)};
+  this.pickupOrder=this.tethers.map((t,i)=>i).sort((a,b)=>angle(this.tethers[a])-angle(this.tethers[b]));
+ }
+ pickupGoal(p){
+  const index=this.pickupOrder?.[this.rank(p)],t=this.tethers[index];
+  if(!t)return {x:p.x,y:p.y};
+  const owner=this.byRole(t.owner);return polar(Math.atan2(owner.x,-owner.y),this.config.pickupRadius);
  }
  bot(p,dt){
   const job=this.job(p),rank=this.rank(p);
   if(this.total<4)return;
-  if(this.round===0&&this.total<6){if(p.number===3)this.move(p,{x:p.x,y:2.2},dt);return}
+  if(this.round===0&&this.total<6){if(p.number===3)this.move(p,{x:0,y:4.2},dt);return}
   if(this.round===0&&p.number!==3&&this.total<6+this.config.waitDuration)return;
   if(this.total<p.waitUntil)return;
   if(job==='線'){
    if(this.holding(p)<0){
-    // Everyone can take a line; intended receivers approach the boss to collect theirs.
-    const available=this.tethers.filter(t=>this.job(this.byRole(t.owner))!=='線');
-    const tether=available[rank%Math.max(1,available.length)];
-    if(tether&&tether.contacts.has(p.role)){
-     const owner=this.byRole(tether.owner),angle=Math.atan2(owner.x,-owner.y);
-     this.move(p,polar(angle+Math.PI/2,3.2),dt);
-    }else this.move(p,polar(rank?Math.PI/2:-Math.PI/2,.7),dt);
+    const index=this.pickupOrder?.[rank],tether=this.tethers[index];
+    if(!tether)return;
+    const target=this.pickupGoal(p),owner=this.byRole(tether.owner);
+    if(tether.contacts.has(p.role)){
+     const angle=Math.atan2(owner.x,-owner.y);
+     this.move(p,polar(angle+(rank?1:-1)*.65,this.config.pickupRadius+1),dt);
+    }else{
+     const a=Math.atan2(p.x,-p.y),b=Math.atan2(target.x,-target.y),r=this.config.avoidRadius;
+     let turn=Math.atan2(Math.sin(b-a),Math.cos(b-a));
+     const other=this.tethers.find(t=>t!==tether),otherOwner=other&&this.byRole(other.owner);
+     if(otherOwner&&Math.hypot(otherOwner.x,otherOwner.y)>r-this.config.transferDistance){
+      const between=Math.atan2(Math.sin(Math.atan2(otherOwner.x,-otherOwner.y)-a),Math.cos(Math.atan2(otherOwner.x,-otherOwner.y)-a));
+      if(Math.sign(between)===Math.sign(turn)&&Math.abs(between)<Math.abs(turn))turn-=Math.sign(turn)*Math.PI*2;
+     }
+     if(Math.abs(turn)<.18)this.move(p,target,dt);
+     else if(Math.hypot(p.x,p.y)>r+.15)this.move(p,polar(a,r),dt);
+     else this.move(p,polar(a+Math.sign(turn)*Math.min(Math.abs(turn),this.config.moveSpeed*dt/r),r),dt);
+    }
     return;
    }
    const holdersReady=this.tethers.length===2&&this.tethers.every(t=>this.job(this.byRole(t.owner))==='線');
    const othersSafe=this.players.filter(x=>this.job(x)!=='線').every(x=>
-    distance(x,this.goal(x))<3&&this.layout.lines.every(g=>segmentDistance(x,g)>this.config.transferDistance+.5));
+    this.layout.lines.every(g=>{const goal=this.goal(x),cross=g.x*x.y-g.y*x.x,end=g.x*goal.y-g.y*goal.x;return (distance(x,goal)<3||cross*end>1e-6)&&segmentDistance(x,g)>this.config.transferDistance+.5}));
    // Commit to extending only after both lines and the other six players are ready.
    if(holdersReady&&othersSafe)this.linesReleased=true;
-   this.move(p,this.linesReleased?this.goal(p):polar(rank?Math.PI/2:-Math.PI/2,.7),dt);
+   this.move(p,this.linesReleased?this.goal(p):polar(Math.atan2(this.goal(p).x,-this.goal(p).y),this.config.pickupRadius),dt);
   }else this.peripheralMove(p,this.goal(p),dt);
  }
  tick(dt,{direction=null,autoUser=false}={}){
@@ -110,6 +132,7 @@ export class Simulation{
   dt=Math.min(dt,.05);this.elapsed+=dt;this.total+=dt;
   if(this.total>=6&&this.tethers.length===0){
    this.tethers=this.initialOwners.map(owner=>({owner,contacts:new Set()}));
+   this.assignPickup();
    // Players already gathered at C do not steal newly spawned lines without moving away and back.
    for(const t of this.tethers)t.contacts=new Set(this.players.filter(p=>p.number!==3&&segmentDistance(p,this.byRole(t.owner))<=this.config.transferDistance).map(p=>p.role));
   }
@@ -138,6 +161,6 @@ export class Simulation{
   for(const p of this.players)if(this.job(p)!=='休み'){p.scarUntil=this.total+10;if(this.job(p)==='線')p.hpUntil=this.total+10}
   if(this.round===3){this.state='cleared';this.message='4回すべての処理に成功しました';return}
   for(const p of holders)p.waitUntil=this.total+this.config.waitDuration;
-  this.linesReleased=false;this.round++;this.elapsed=0;this.message=`${this.round}回目成功。次の担当へ`;
+  this.linesReleased=false;this.round++;this.elapsed=0;this.assignPickup();this.message=`${this.round}回目成功。次の担当へ`;
  }
 }

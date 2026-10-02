@@ -10,7 +10,7 @@ test('all patterns have two different tower directions and complementary tether 
 });
 test('automatic processing clears all roles and numbers over many seeded patterns',()=>{
  for(let seed=0;seed<48;seed++)for(const role of ROLES)for(let number=1;number<=4;number++){
-  const s=new Simulation({role,number,rng:random(seed)});s.start();for(let t=0;t<2700&&s.state==='running';t++)s.tick(1/60,{autoUser:true});assert.equal(s.state,'cleared',`seed=${seed} ${role} ${number}: ${s.message}`);
+  const s=new Simulation({role,number,rng:random(seed)});const take=s.take.bind(s);s.take=(p,index)=>{const ok=take(p,index);if(ok&&s.job(p)==='線')assert.equal(s.holding(p),s.pickupOrder[s.rank(p)],`pickup priority seed=${seed} ${role} ${number}`);return ok};s.start();for(let t=0;t<2700&&s.state==='running';t++)s.tick(1/60,{autoUser:true});assert.equal(s.state,'cleared',`seed=${seed} ${role} ${number}: ${s.message}`);
  }
 });
 test('missed tower fails and taking a distant tether is rejected',()=>{
@@ -79,4 +79,10 @@ test('NPC and manual movement use the same speed without catch-up or sprint',()=
  }
  const s=new Simulation();s.start();const before={...s.user};s.tick(.05,{direction:{x:1,y:0},sprint:true});
  assert.ok(Math.abs(Math.hypot(s.user.x-before.x,s.user.y-before.y)-s.config.moveSpeed*.05)<1e-8);
+});
+
+test('pickup priority treats both north candidates before east, south and west',()=>{
+ const s=new Simulation();s.tethers=[{owner:'H1',contacts:new Set()},{owner:'MT',contacts:new Set()}];
+ Object.assign(s.byRole('H1'),{x:-3,y:-12});Object.assign(s.byRole('MT'),{x:12,y:3});s.assignPickup();assert.deepEqual(s.pickupOrder,[0,1]);
+ Object.assign(s.byRole('H1'),{x:-12,y:3});Object.assign(s.byRole('MT'),{x:3,y:12});s.assignPickup();assert.deepEqual(s.pickupOrder,[1,0]);
 });
