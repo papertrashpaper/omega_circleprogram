@@ -48,13 +48,13 @@ test('opening reveal, casts and next tower previews follow the requested timelin
  until(4.01);assert.equal(s.numbersVisible,true);assert.equal(s.towersVisible,false);assert.equal(s.cast,null);
  until(5.01);assert.equal(s.towersVisible,true);assert.equal(s.tethers.length,0);
  until(6.01);assert.equal(s.tethers.length,2);assert.equal(s.cast.name,'ブラスター');
- until(8.49);assert.ok(s.players.filter(p=>p.number!==3).every(p=>p.y===16.4));
+ until(7.49);assert.ok(s.players.filter(p=>p.number!==3).every(p=>p.y===16.4));
  until(12.99);assert.equal(s.nextTowersVisible,false);
  until(13.01);assert.equal(s.nextTowersVisible,true);
  until(14.02);assert.equal(s.round,1);assert.equal(s.cast,null);
  const old=s.players.filter(p=>p.number===3),positions=old.map(p=>({x:p.x,y:p.y}));
- until(16.49);assert.deepEqual(old.map(p=>({x:p.x,y:p.y})),positions);
- until(16.6);assert.ok(old.some((p,i)=>p.x!==positions[i].x||p.y!==positions[i].y));
+ until(15.49);assert.deepEqual(old.map(p=>({x:p.x,y:p.y})),positions);
+ until(15.6);assert.ok(old.some((p,i)=>p.x!==positions[i].x||p.y!==positions[i].y));
  until(21.02);assert.equal(s.nextTowersVisible,true);
  until(38.1);assert.equal(s.state,'cleared');
  assert.equal(s.history.length,4);s.history.forEach((h,i)=>assert.ok(Math.abs(h.time-(14+8*i))<.05));
@@ -85,4 +85,34 @@ test('pickup priority treats both north candidates before east, south and west',
  const s=new Simulation();s.tethers=[{owner:'H1',contacts:new Set()},{owner:'MT',contacts:new Set()}];
  Object.assign(s.byRole('H1'),{x:-3,y:-12});Object.assign(s.byRole('MT'),{x:12,y:3});s.assignPickup();assert.deepEqual(s.pickupOrder,[0,1]);
  Object.assign(s.byRole('H1'),{x:-12,y:3});Object.assign(s.byRole('MT'),{x:3,y:12});s.assignPickup();assert.deepEqual(s.pickupOrder,[1,0]);
+});
+test('waiting players may occupy any safe point outside towers',()=>{
+ const s=new Simulation({rng:random(12)});s.start();s.total=14;s.elapsed=14;
+ for(const p of s.players)Object.assign(p,s.goal(p));
+ const holders=s.players.filter(p=>s.job(p)==='線');s.tethers=holders.map(p=>({owner:p.role,contacts:new Set()}));
+ const rest=s.players.filter(p=>s.job(p)==='休み');
+ const candidates=[];for(let x=-17;x<=17;x+=1)for(let y=-17;y<=17;y+=1){const q={x,y};if(Math.hypot(x,y)<19&&s.safeWaitingPoint(q))candidates.push(q)}
+ for(const p of rest){const original=s.goal(p),q=candidates.find(q=>Math.hypot(q.x-original.x,q.y-original.y)>4);assert.ok(q);Object.assign(p,q)}
+ s.resolve();assert.equal(s.history[0].errors.length,0);assert.equal(s.round,1);
+});
+test('line extension begins immediately when clear or no later than 1.5 seconds after pickup',()=>{
+ const s=new Simulation({rng:random(1)});s.start();s.total=10;s.elapsed=10;
+ const p=s.players.find(p=>s.job(p)==='線'),other=s.players.find(x=>x!==p&&s.job(x)==='線');
+ s.tethers=[{owner:p.role,contacts:new Set()},{owner:other.role,contacts:new Set()}];
+ for(const x of s.players)Object.assign(x,s.goal(x));
+ const g=s.goal(p),r=s.config.pickupRadius;Object.assign(p,{x:g.x/18*r,y:g.y/18*r,tetherAcquiredAt:10,extending:false});
+ s.bot(p,.01);assert.equal(p.extending,true);
+ const block=s.players.find(x=>s.job(x)==='休み');Object.assign(block,g);p.extending=false;p.tetherAcquiredAt=10;
+ s.total=11.49;s.bot(p,.01);assert.equal(p.extending,false);
+ s.total=11.5;s.bot(p,.01);assert.equal(p.extending,true);
+});
+test('next tether receivers wait safely closer to their assigned line',()=>{
+ for(let seed=0;seed<20;seed++){
+  const s=new Simulation({rng:random(seed)});
+  for(const p of s.players.filter(p=>p.number===4)){
+   const point=s.goal(p),rank=s.rank(p),line=s.layout.lines[rank],pickup={x:line.x/18*s.config.pickupRadius,y:line.y/18*s.config.pickupRadius};
+   const old={x:s.layout.towers[rank].x*.67,y:s.layout.towers[rank].y*.67};
+   assert.ok(s.safeWaitingPoint(point));assert.ok(Math.hypot(point.x-pickup.x,point.y-pickup.y)<=Math.hypot(old.x-pickup.x,old.y-pickup.y));
+  }
+ }
 });
