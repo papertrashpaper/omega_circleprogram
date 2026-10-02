@@ -1,5 +1,5 @@
 export const ROLES=['H1','MT','ST','D1','D2','D3','D4','H2'];
-export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:6,firstDuration:12,roundDuration:10};
+export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:6,firstDuration:14,roundDuration:8,waitDuration:2.5};
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const polar=(a,r)=>({x:Math.sin(a)*r,y:-Math.cos(a)*r});
 export const action=(n,round)=>n===round+1?'塔':n===((round+2)%4)+1?'線':'休み';
@@ -14,9 +14,13 @@ export class Simulation{
  constructor({role='H2',number=1,pattern='random',rng=Math.random,config={}}={}){
   this.config={...CONFIG,...config};this.rng=rng;this.pattern=pattern;this.userRole=role;this.round=0;this.elapsed=0;this.total=0;this.state='ready';this.message='';this.history=[];this.effects=[];this.layouts=Array.from({length:4},()=>makeLayout(rng,pattern));
   const n=number||1+Math.floor(rng()*4),nums=[1,1,2,2,3,3,4,4];nums.splice(nums.indexOf(n),1);const rest=shuffled(nums,rng);
-  this.players=ROLES.map((role,i)=>({role,number:role===this.userRole?n:rest.pop(),...polar(i*Math.PI/4,3.5),target:null,scarUntil:0,hpUntil:0}));
-  this.user=this.players.find(p=>p.role===this.userRole);const owners=shuffled(this.players,rng);this.tethers=[{owner:owners[0].role,contacts:new Set()},{owner:owners[1].role,contacts:new Set()}];
+  this.players=ROLES.map((role,i)=>({role,number:role===this.userRole?n:rest.pop(),x:(i-3.5)*.3,y:16.4,target:null,waitUntil:0,scarUntil:0,hpUntil:0}));
+  this.user=this.players.find(p=>p.role===this.userRole);const owners=shuffled(this.players,rng);this.initialOwners=owners.slice(0,2).map(p=>p.role);this.tethers=[];
  }
+ get numbersVisible(){return this.total>=4}
+ get towersVisible(){return this.total>=5}
+ get nextTowersVisible(){return this.round<3&&this.remaining<=1+1e-8&&this.towersVisible}
+ get cast(){if(this.state==='ready')return null;if(this.total<4)return {name:'サークルプログラム',remaining:4-this.total,duration:4};if(this.total>=6&&this.total<14)return {name:'ブラスター',remaining:14-this.total,duration:8};return null}
  get layout(){return this.layouts[this.round]}
  get duration(){return this.round===0?this.config.firstDuration:this.config.roundDuration}
  get remaining(){return Math.max(0,this.duration-this.elapsed)}
@@ -55,23 +59,32 @@ export class Simulation{
  move(p,target,dt,speed=this.config.moveSpeed){const d=distance(p,target);if(d<.01)return;const k=Math.min(1,speed*dt/d);p.x+=(target.x-p.x)*k;p.y+=(target.y-p.y)*k;const r=Math.hypot(p.x,p.y);if(r>19){p.x*=19/r;p.y*=19/r}}
  bot(p,dt){
   const job=this.job(p),rank=this.rank(p);
+  if(this.total<4)return;
+  if(this.round===0&&this.total<6){if(p.number===3)this.move(p,{x:p.x,y:10},dt);return}
+  if(this.round===0&&p.number!==3&&this.total<6+this.config.waitDuration)return;
+  if(this.total<p.waitUntil)return;
   if(job==='線'&&this.holding(p)<0){
    const available=this.tethers.map((t,i)=>i).filter(i=>this.job(this.byRole(this.tethers[i].owner))!=='線');
    const index=available.includes(rank)?rank:available[0];
    if(index===undefined)return;
    const owner=this.byRole(this.tethers[index].owner);
    const target={x:owner.x*.27,y:owner.y*.27};this.move(p,target,dt);
-   if(this.elapsed>1.1+rank*.4)this.take(p,index);
+   this.take(p,index);
   }else{
    // Receivers stay near the centre until both intended tether holders are ready.
    const holdersReady=this.tethers.every(t=>this.job(this.byRole(t.owner))==='線');
-   const g=job==='線'&&(!holdersReady||this.elapsed<2)?polar((rank?1:-1)*Math.PI/2,2.5):this.goal(p);
+   const g=job==='線'&&(!holdersReady||this.elapsed<(this.round===0?7:1))?polar((rank?1:-1)*Math.PI/2,2.5):this.goal(p);
    this.move(p,g,dt);
   }
  }
  tick(dt,{direction=null,sprint=false,autoUser=false}={}){
   if(this.state!=='running')return;
   dt=Math.min(dt,.05);this.elapsed+=dt;this.total+=dt;
+  if(this.total>=6&&this.tethers.length===0){
+   this.tethers=this.initialOwners.map(owner=>({owner,contacts:new Set()}));
+   // Players already gathered at C do not steal newly spawned lines without moving away and back.
+   for(const t of this.tethers)t.contacts=new Set(this.players.filter(p=>p.number!==3&&segmentDistance(p,this.byRole(t.owner))<=this.config.transferDistance).map(p=>p.role));
+  }
   for(const p of this.players)if(p!==this.user||autoUser)this.bot(p,dt);
   if(!autoUser){if(direction&&(direction.x||direction.y)){this.user.target=null;let len=Math.hypot(direction.x,direction.y);this.move(this.user,{x:this.user.x+direction.x/len,y:this.user.y+direction.y/len},dt,this.config.moveSpeed*(sprint?1.3:1))}else if(this.user.target)this.move(this.user,this.user.target,dt,this.config.moveSpeed*(sprint?1.3:1))}
   if(!autoUser)this.contact();
@@ -92,10 +105,11 @@ export class Simulation{
    this.effects.push({...holder,until:this.total+1.1,radius:this.config.blastRadius});
   }
   for(const p of this.players)if(this.job(p)!=='休み'&&p.scarUntil>this.total+.05)errors.push(`${p.role}：破滅の刻印が残ったまま連続処理`);
-  this.history.push({round:this.round+1,errors});
+  this.history.push({round:this.round+1,time:this.total,errors});
   if(errors.length){this.state='failed';this.message=[...new Set(errors)].join('\n');return}
   for(const p of this.players)if(this.job(p)!=='休み'){p.scarUntil=this.total+10;if(this.job(p)==='線')p.hpUntil=this.total+10}
   if(this.round===3){this.state='cleared';this.message='4回すべての処理に成功しました';return}
+  for(const p of holders)p.waitUntil=this.total+this.config.waitDuration;
   this.round++;this.elapsed=0;this.message=`${this.round}回目成功。次の担当へ`;
  }
 }

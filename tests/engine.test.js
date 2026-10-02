@@ -14,7 +14,7 @@ test('automatic processing clears all roles and numbers over many seeded pattern
  }
 });
 test('missed tower fails and taking a distant tether is rejected',()=>{
- const s=new Simulation({rng:random(7)});s.start();s.user.x=0;s.user.y=19;assert.equal(s.take(),false);for(let t=0;t<800&&s.state==='running';t++)s.tick(1/60);assert.equal(s.state,'failed');assert.match(s.message,/H2.*塔/);
+ const s=new Simulation({rng:random(7)});s.start();s.user.x=0;s.user.y=19;assert.equal(s.take(),false);for(let t=0;t<1000&&s.state==='running';t++)s.tick(1/60);assert.equal(s.state,'failed');assert.match(s.message,/H2.*塔/);
 });
 test('tethers persist at round transition until another player takes them',()=>{
  const s=new Simulation({rng:random(12)});s.start();while(s.round===0&&s.state==='running')s.tick(1/60,{autoUser:true});assert.equal(s.round,1);for(const t of s.tethers)assert.equal(s.byRole(t.owner).number,3);
@@ -39,4 +39,23 @@ test('contact is inactive while ready or paused',()=>{
  s.user.x=0;s.user.y=0;const owners=s.tethers.map(t=>t.owner);
  s.tick(.05);assert.deepEqual(s.tethers.map(t=>t.owner),owners);
  s.state='paused';s.tick(.05);assert.deepEqual(s.tethers.map(t=>t.owner),owners);
+});
+test('opening reveal, casts and next tower previews follow the requested timeline',()=>{
+ const s=new Simulation({rng:random(2)});s.start();
+ const until=t=>{while(s.total<t-1e-7&&s.state==='running')s.tick(Math.min(.01,t-s.total),{autoUser:true})};
+ assert.ok(s.players.every(p=>p.y===16.4));assert.equal(s.tethers.length,0);
+ until(3.99);assert.equal(s.numbersVisible,false);assert.equal(s.cast.name,'サークルプログラム');
+ until(4.01);assert.equal(s.numbersVisible,true);assert.equal(s.towersVisible,false);assert.equal(s.cast,null);
+ until(5.01);assert.equal(s.towersVisible,true);assert.equal(s.tethers.length,0);
+ until(6.01);assert.equal(s.tethers.length,2);assert.equal(s.cast.name,'ブラスター');
+ until(8.49);assert.ok(s.players.filter(p=>p.number!==3).every(p=>p.y===16.4));
+ until(12.99);assert.equal(s.nextTowersVisible,false);
+ until(13.01);assert.equal(s.nextTowersVisible,true);
+ until(14.02);assert.equal(s.round,1);assert.equal(s.cast,null);
+ const old=s.players.filter(p=>p.number===3),positions=old.map(p=>({x:p.x,y:p.y}));
+ until(16.49);assert.deepEqual(old.map(p=>({x:p.x,y:p.y})),positions);
+ until(16.6);assert.ok(old.some((p,i)=>p.x!==positions[i].x||p.y!==positions[i].y));
+ until(21.02);assert.equal(s.nextTowersVisible,true);
+ until(38.1);assert.equal(s.state,'cleared');
+ assert.equal(s.history.length,4);s.history.forEach((h,i)=>assert.ok(Math.abs(h.time-(14+8*i))<.05));
 });
