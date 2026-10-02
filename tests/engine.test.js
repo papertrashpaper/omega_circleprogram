@@ -59,3 +59,24 @@ test('opening reveal, casts and next tower previews follow the requested timelin
  until(38.1);assert.equal(s.state,'cleared');
  assert.equal(s.history.length,4);s.history.forEach((h,i)=>assert.ok(Math.abs(h.time-(14+8*i))<.05));
 });
+test('consecutive layouts never reuse a tower position',()=>{
+ for(const pattern of ['random','adjacent','opposite'])for(let seed=0;seed<100;seed++){
+  const s=new Simulation({pattern,rng:random(seed)});
+  for(let i=1;i<4;i++)for(const t of s.layouts[i].towers)for(const prev of s.layouts[i-1].towers){
+   assert.ok(Math.hypot(t.x-prev.x,t.y-prev.y)>1);
+   if(t.dir===prev.dir)assert.equal(s.layouts[i].offset,-s.layouts[i-1].offset);
+  }
+ }
+});
+test('NPC and manual movement use the same speed without catch-up or sprint',()=>{
+ for(const pattern of ['random','adjacent','opposite'])for(let seed=0;seed<12;seed++){
+  const s=new Simulation({pattern,rng:random(seed)});s.start();
+  for(let i=0;i<2500&&s.state==='running';i++){
+   const before=s.players.map(p=>({x:p.x,y:p.y}));s.tick(1/60,{autoUser:true});
+   s.players.forEach((p,j)=>assert.ok(Math.hypot(p.x-before[j].x,p.y-before[j].y)<=s.config.moveSpeed/60+1e-8));
+  }
+  assert.equal(s.state,'cleared',`${pattern} ${seed}: ${s.message}`);
+ }
+ const s=new Simulation();s.start();const before={...s.user};s.tick(.05,{direction:{x:1,y:0},sprint:true});
+ assert.ok(Math.abs(Math.hypot(s.user.x-before.x,s.user.y-before.y)-s.config.moveSpeed*.05)<1e-8);
+});

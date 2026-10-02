@@ -28,7 +28,7 @@ function draw(){
   };
   if(sim.towersVisible)for(const t of sim.layout.towers)drawTower(t,sim.round+1);
   if(sim.nextTowersVisible)for(const t of sim.layouts[sim.round+1].towers)drawTower(t,sim.round+2,true);
-  for(const tether of sim.tethers){const p=sim.byRole(tether.owner);line({x:0,y:0},p,'#f6aa56',4);pathCircle(p,1.6,null,'#ffd490',2)}
+  for(const tether of sim.tethers){const p=sim.byRole(tether.owner);line({x:0,y:0},p,'#f6aa56',4);pathCircle(p,1.15,null,'#ffd490',2)}
   for(const e of sim.effects)pathCircle(e,e.radius,'#ff637c28','#ff7889a0',2);
   if($('hints').checked&&sim.state!=='cleared'&&sim.towersVisible){
    const g=sim.goal(sim.user);line(sim.user,g,'#76eddb70',2,[6,7]);pathCircle(g,1.05,'#6ee7d11c','#6ee7d1',2);text('目標',{x:g.x,y:g.y-1.8},16,'#99f5e4',600);
@@ -36,7 +36,7 @@ function draw(){
   }
  }
  pathCircle({x:0,y:0},2.1,'#263849','#8a9fab',2);text('Ω',{x:0,y:-.25},34,'#cad9df',600);text('OMEGA',{x:0,y:1.1},10,'#91a6b6');
- for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,1.45,null,'#ffffff',2.5);pathCircle(p,1.14,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,24,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.95},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.85},12,'#ffb6ba')}
+ for(const p of sim.players){const you=p===sim.user;if(you)pathCircle(p,.97,null,'#ffffff',2.5);pathCircle(p,.76,colors[p.role],'#0b1723',2);text(sim.numbersVisible?String(p.number):'?',p,16,'#0b1723',750);text(p.role+(you?' · YOU':''),{x:p.x,y:p.y-1.45},you?17:14,you?'#ffffff':colors[p.role],650);if(p.hpUntil>sim.total)text('HP↓',{x:p.x,y:p.y+1.35},12,'#ffb6ba')}
 }
 function ui(){
  const p=sim.user,r=sim.round,job=sim.job(p),ready=sim.state==='ready';
@@ -54,10 +54,10 @@ function ui(){
  const b=$('banner');b.hidden=sim.state==='running';b.className='banner'+(sim.state==='failed'?' error':sim.state==='cleared'?' success':'');
  if(!b.hidden){const headings={ready:'自分の役割を選んで、練習開始',paused:'一時停止',failed:`第${r+1}回：もう一度練習しよう`,cleared:'全4回の処理に成功'};b.replaceChildren();const strong=document.createElement('strong'),span=document.createElement('span');strong.textContent=headings[sim.state];span.textContent=sim.state==='ready'?`${p.role}・${p.number}番 / 正解ガイドは設定で切り替えできます`:sim.state==='paused'?'再開ボタンまたは Space で続ける':sim.state==='failed'?sim.message.split('\n').slice(0,4).join('\n'):'おつかれさまでした。次はガイドなしにも挑戦できます。';b.append(strong,span)}
 }
-const controlKeys=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D','Shift'];
+const controlKeys=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D'];
 window.addEventListener('keydown',e=>{if(['SELECT','INPUT','TEXTAREA'].includes(e.target.tagName))return;if(controlKeys.includes(e.key)){e.preventDefault();keys.add(e.key.toLowerCase())}if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat)pause()}});
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();if(sim.state==='running')pause()});
 canvas.addEventListener('pointerdown',e=>{const rect=canvas.getBoundingClientRect();const x=((e.clientX-rect.left)/rect.width*900-C)/S,y=((e.clientY-rect.top)/rect.height*900-C)/S;sim.user.target={x,y};canvas.focus();e.preventDefault()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&sim.state==='running')pause()});
-function frame(time){let dt=Math.min((time-last)/1000||0,.05);last=time;const direction={x:(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),y:(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0)};sim.tick(dt*Number($('speed').value),{direction,sprint:keys.has('shift')});draw();if(time-lastUI>80){ui();lastUI=time}requestAnimationFrame(frame)}
+function frame(time){let dt=Math.min((time-last)/1000||0,.05);last=time;const direction={x:(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),y:(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0)};sim.tick(dt*Number($('speed').value),{direction});draw();if(time-lastUI>80){ui();lastUI=time}requestAnimationFrame(frame)}
 reset();requestAnimationFrame(frame);

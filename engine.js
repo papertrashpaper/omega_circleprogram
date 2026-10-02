@@ -1,5 +1,5 @@
 export const ROLES=['H1','MT','ST','D1','D2','D3','D4','H2'];
-export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:6,firstDuration:14,roundDuration:8,waitDuration:2.5};
+export const CONFIG={arenaRadius:20,towerRadius:2.5,towerDistance:12.4,outerDistance:18,blastRadius:16,transferDistance:1.5,moveSpeed:14,firstDuration:14,roundDuration:8,waitDuration:2.5};
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const polar=(a,r)=>({x:Math.sin(a)*r,y:-Math.cos(a)*r});
 export const action=(n,round)=>n===round+1?'塔':n===((round+2)%4)+1?'線':'休み';
@@ -64,10 +64,7 @@ export class Simulation{
   const radius=Math.max(Math.hypot(p.x,p.y),Math.hypot(goal.x,goal.y),12.4);
   const angle=Math.atan2(p.x,-p.y),end=Math.atan2(goal.x,-goal.y);
   const turn=Math.atan2(Math.sin(end-angle),Math.cos(end-angle));
-  // Budget the longer peripheral detour so the receivers still have time to extend.
-  // This is NPC pacing only; manual player movement keeps its original speed.
-  const routeLength=Math.max(0,radius-Math.hypot(p.x,p.y))+Math.abs(turn)*radius+Math.abs(radius-Math.hypot(goal.x,goal.y));
-  const speed=Math.min(30,Math.max(this.config.moveSpeed,routeLength/Math.max(.6,this.remaining-3.2)));
+  const speed=this.config.moveSpeed;
   let target;
   if(Math.abs(turn)>.035){
    if(Math.hypot(p.x,p.y)<radius-.2)target=polar(angle,radius);
@@ -92,7 +89,12 @@ export class Simulation{
   if(job==='線'){
    if(this.holding(p)<0){
     // Everyone can take a line; intended receivers approach the boss to collect theirs.
-    this.move(p,polar(rank?Math.PI/2:-Math.PI/2,.7),dt);
+    const available=this.tethers.filter(t=>this.job(this.byRole(t.owner))!=='線');
+    const tether=available[rank%Math.max(1,available.length)];
+    if(tether&&tether.contacts.has(p.role)){
+     const owner=this.byRole(tether.owner),angle=Math.atan2(owner.x,-owner.y);
+     this.move(p,polar(angle+Math.PI/2,3.2),dt);
+    }else this.move(p,polar(rank?Math.PI/2:-Math.PI/2,.7),dt);
     return;
    }
    const holdersReady=this.tethers.length===2&&this.tethers.every(t=>this.job(this.byRole(t.owner))==='線');
@@ -103,7 +105,7 @@ export class Simulation{
    this.move(p,this.linesReleased?this.goal(p):polar(rank?Math.PI/2:-Math.PI/2,.7),dt);
   }else this.peripheralMove(p,this.goal(p),dt);
  }
- tick(dt,{direction=null,sprint=false,autoUser=false}={}){
+ tick(dt,{direction=null,autoUser=false}={}){
   if(this.state!=='running')return;
   dt=Math.min(dt,.05);this.elapsed+=dt;this.total+=dt;
   if(this.total>=6&&this.tethers.length===0){
@@ -112,7 +114,7 @@ export class Simulation{
    for(const t of this.tethers)t.contacts=new Set(this.players.filter(p=>p.number!==3&&segmentDistance(p,this.byRole(t.owner))<=this.config.transferDistance).map(p=>p.role));
   }
   for(const p of this.players)if(p!==this.user||autoUser)this.bot(p,dt);
-  if(!autoUser){if(direction&&(direction.x||direction.y)){this.user.target=null;let len=Math.hypot(direction.x,direction.y);this.move(this.user,{x:this.user.x+direction.x/len,y:this.user.y+direction.y/len},dt,this.config.moveSpeed*(sprint?1.3:1))}else if(this.user.target)this.move(this.user,this.user.target,dt,this.config.moveSpeed*(sprint?1.3:1))}
+  if(!autoUser){if(direction&&(direction.x||direction.y)){this.user.target=null;let len=Math.hypot(direction.x,direction.y);this.move(this.user,{x:this.user.x+direction.x/len,y:this.user.y+direction.y/len},dt,this.config.moveSpeed)}else if(this.user.target)this.move(this.user,this.user.target,dt,this.config.moveSpeed)}
   for(const p of this.players)this.contact(p);
   this.effects=this.effects.filter(e=>e.until>this.total);
   if(this.elapsed>=this.duration)this.resolve();
